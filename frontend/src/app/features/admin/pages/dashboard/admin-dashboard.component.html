@@ -1,0 +1,78 @@
+<div class="admin-dashboard page-enter">
+  <h1 class="dashboard-title">Tableau de bord</h1>
+
+  <div *ngIf="loading" class="loading">
+    <p>Chargement des statistiques...</p>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+    <button class="btn-retry" (click)="loadStats()">Réessayer</button>
+  </div>
+
+  <div *ngIf="!loading && !error && stats" class="stats-grid">
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-content">
+        <h3>{{ stats.totalUsers }}</h3>
+        <p>Total utilisateurs</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-content">
+        <h3>{{ stats.activeUsers }}</h3>
+        <p>Utilisateurs actifs</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">❌</div>
+      <div class="stat-content">
+        <h3>{{ stats.inactiveUsers }}</h3>
+        <p>Utilisateurs inactifs</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">🆕</div>
+      <div class="stat-content">
+        <h3>{{ stats.newUsersThisMonth }}</h3>
+        <p>Nouveaux ce mois</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">🔧</div>
+      <div class="stat-content">
+        <h3>{{ stats.adminCount }}</h3>
+        <p>Administrateurs</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">👑</div>
+      <div class="stat-content">
+        <h3>{{ stats.superAdminCount }}</h3>
+        <p>Super administrateurs</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">👷</div>
+      <div class="stat-content">
+        <h3>{{ stats.employeeCount }}</h3>
+        <p>Employés</p>
+      </div>
+    </div>
+
+    <div class="stat-card app-shell-card">
+      <div class="stat-icon">🛒</div>
+      <div class="stat-content">
+        <h3>{{ stats.clientCount }}</h3>
+        <p>Clients</p>
+      </div>
+    </div>
+  </div>
+</div>

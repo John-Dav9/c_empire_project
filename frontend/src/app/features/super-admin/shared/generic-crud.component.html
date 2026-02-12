@@ -1,0 +1,109 @@
+<div class="crud-container page-enter">
+  <div class="header">
+    <h1>{{ config.icon }} {{ config.title }}</h1>
+    <button class="btn btn-primary" (click)="openAddModal()">
+      ➕ Ajouter
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Chargement...</p>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+
+  <div *ngIf="!loading" class="table-container app-shell-card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th *ngFor="let field of config.displayFields">
+            {{ getFieldLabel(field) }}
+          </th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of items">
+          <td *ngFor="let field of config.displayFields">
+            {{ getValue(item, field) }}
+          </td>
+          <td class="actions">
+            <button class="btn-icon" (click)="editItem(item)">✏️</button>
+            <button class="btn-icon" (click)="deleteItem(item.id)">🗑️</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="items.length === 0" class="empty-state">
+      <p>Aucun élément trouvé</p>
+      <button class="btn btn-primary" (click)="openAddModal()">Ajouter le premier élément</button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div *ngIf="showModal" class="modal-overlay" (click)="showModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ editingItem ? '✏️ Modifier' : '➕ Nouveau' }}</h2>
+        <button class="close-btn" (click)="showModal = false">✕</button>
+      </div>
+      <form (ngSubmit)="saveItem()" class="modal-body">
+        <div *ngFor="let field of config.fields" class="form-group">
+          <label>
+            {{ field.label }}
+            <span *ngIf="field.required" class="required">*</span>
+          </label>
+
+          <input *ngIf="field.type === 'text' || field.type === 'url'"
+                 [(ngModel)]="formData[field.name]"
+                 [name]="field.name"
+                 [required]="!!field.required"
+                 class="form-control">
+
+          <input *ngIf="field.type === 'number'"
+                 type="number"
+                 [(ngModel)]="formData[field.name]"
+                 [name]="field.name"
+                 [required]="!!field.required"
+                 class="form-control">
+
+          <textarea *ngIf="field.type === 'textarea'"
+                    [(ngModel)]="formData[field.name]"
+                    [name]="field.name"
+                    [required]="!!field.required"
+                    class="form-control"
+                    rows="3"></textarea>
+
+          <select *ngIf="field.type === 'select'"
+                  [(ngModel)]="formData[field.name]"
+                  [name]="field.name"
+                  [required]="!!field.required"
+                  class="form-control">
+            <option value="">Sélectionner...</option>
+            <option *ngFor="let opt of field.options" [value]="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+
+          <label *ngIf="field.type === 'checkbox'" class="checkbox-label">
+            <input type="checkbox"
+                   [(ngModel)]="formData[field.name]"
+                   [name]="field.name">
+            {{ field.label }}
+          </label>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="showModal = false">
+            Annuler
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="saving">
+            {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,76 @@
+<div class="product-detail-container">
+  <button mat-icon-button [routerLink]="['/shop']" class="back-btn">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+
+  <div *ngIf="loading" class="loading">
+    <mat-spinner></mat-spinner>
+  </div>
+
+  <div *ngIf="product && !loading" class="product-detail">
+    <div class="product-image-section">
+      <div *ngIf="product.image; else noImage" class="product-image">
+        <img [src]="product.image" [alt]="product.name" />
+      </div>
+      <ng-template #noImage>
+        <div class="product-image placeholder">
+          <mat-icon>shopping_cart</mat-icon>
+        </div>
+      </ng-template>
+    </div>
+
+    <div class="product-info">
+      <mat-card class="app-shell-card detail-card">
+        <mat-card-header>
+          <h1>{{ product.name }}</h1>
+          <p class="category">{{ product.category || 'Produit' }}</p>
+        </mat-card-header>
+
+        <mat-card-content>
+          <div class="price-section">
+            <span class="price">{{ product.price | currency:'XOF' }}</span>
+            <span class="stock" [class.low]="product.stock < 5">
+              <mat-icon *ngIf="product.stock > 0">check_circle</mat-icon>
+              <mat-icon *ngIf="product.stock === 0">cancel</mat-icon>
+              {{ product.stock > 0 ? 'En stock' : 'Rupture de stock' }}
+            </span>
+          </div>
+
+          <div class="description">
+            <h3>Description</h3>
+            <p>{{ product.description }}</p>
+          </div>
+
+          <div *ngIf="product.specifications && product.specifications.length > 0" class="specifications">
+            <h3>Spécifications</h3>
+            <ul>
+              <li *ngFor="let spec of product.specifications">{{ spec }}</li>
+            </ul>
+          </div>
+
+          <form [formGroup]="form" class="add-to-cart-form">
+            <mat-form-field appearance="outline" class="quantity-field">
+              <mat-label>Quantité</mat-label>
+              <input matInput type="number" formControlName="quantity" [min]="1" [max]="product.stock" />
+            </mat-form-field>
+
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="addToCart()"
+              [disabled]="product.stock === 0 || form.invalid"
+              class="add-btn"
+            >
+              <mat-icon>add_shopping_cart</mat-icon>
+              Ajouter au panier
+            </button>
+          </form>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+</div>

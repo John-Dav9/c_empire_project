@@ -1,0 +1,83 @@
+<div class="signin-container">
+  <div class="mesh one"></div>
+  <div class="mesh two"></div>
+
+  <mat-card class="signin-card app-shell-card page-enter">
+    <div class="logo-section">
+      <div class="brand-video-wrap">
+        <video
+          #brandVideo
+          class="brand-video"
+          autoplay
+          loop
+          muted
+          playsinline
+          preload="auto"
+          disablePictureInPicture
+          disableRemotePlayback
+          aria-label="Logo animé C'EMPIRE"
+        >
+          <source src="/media/brand-loop.mp4" type="video/mp4" />
+        </video>
+      </div>
+      <h1 class="brand-name">C'EMPIRE</h1>
+      <p class="brand-subtitle">Connexion sécurisée</p>
+    </div>
+
+    <div class="auth-head">
+      <h2>Se Connecter</h2>
+      <p class="subtitle">Accédez à votre compte</p>
+    </div>
+
+    <mat-card-content>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <mat-icon matPrefix>mail</mat-icon>
+          <input matInput type="email" formControlName="email" />
+          <mat-error *ngIf="form.get('email')?.hasError('required')">
+            Email requis
+          </mat-error>
+          <mat-error *ngIf="form.get('email')?.hasError('email')">
+            Email invalide
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Mot de passe</mat-label>
+          <mat-icon matPrefix>lock</mat-icon>
+          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" />
+          <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePassword">
+            <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          <mat-error *ngIf="form.get('password')?.hasError('required')">
+            Mot de passe requis
+          </mat-error>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" class="signin-button" [disabled]="form.invalid || loading" type="submit">
+          <mat-icon *ngIf="!loading">login</mat-icon>
+          <span *ngIf="!loading">Se Connecter</span>
+          <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+        </button>
+
+        <div class="divider">
+          <span>Nouveau sur C'EMPIRE?</span>
+        </div>
+
+        <button mat-stroked-button class="signup-button" (click)="goToSignup()" type="button">
+          Créer un compte
+        </button>
+
+        <p class="forgot-password">
+          <a href="#">Mot de passe oublié?</a>
+        </p>
+
+        <div *ngIf="error" class="error-message">
+          <mat-icon>error</mat-icon>
+          <span>{{ error }}</span>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

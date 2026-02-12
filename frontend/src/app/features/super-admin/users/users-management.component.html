@@ -1,0 +1,113 @@
+<div class="users-management page-enter">
+  <div class="header">
+    <h1>Gestion des Utilisateurs</h1>
+    <p class="subtitle">{{ totalUsers }} utilisateur(s) au total</p>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters app-shell-card">
+    <div class="search-box">
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (keyup.enter)="onSearch()"
+        placeholder="Rechercher par email ou nom..."
+        class="form-control">
+      <button class="btn btn-primary" (click)="onSearch()">🔍 Rechercher</button>
+    </div>
+
+    <div class="filter-group">
+      <select [(ngModel)]="selectedRole" (change)="onFilterChange()" class="form-control">
+        <option value="">Tous les rôles</option>
+        <option *ngFor="let role of userRoles" [value]="role">{{ getRoleLabel(role) }}</option>
+      </select>
+
+      <select [(ngModel)]="selectedStatus" (change)="onFilterChange()" class="form-control">
+        <option value="">Tous les statuts</option>
+        <option [value]="true">Actifs</option>
+        <option [value]="false">Inactifs</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Chargement des utilisateurs...</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error && !loading" class="error">
+    <p>{{ error }}</p>
+    <button class="btn btn-primary" (click)="loadUsers()">Réessayer</button>
+  </div>
+
+  <!-- Users Table -->
+  <div *ngIf="!loading && !error" class="table-container app-shell-card">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Nom Complet</th>
+          <th>Rôle</th>
+          <th>Statut</th>
+          <th>Date d'inscription</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users">
+          <td>{{ user.email }}</td>
+          <td>{{ user.firstname }} {{ user.lastname }}</td>
+          <td>
+            <span class="badge" [ngClass]="getRoleBadgeClass(user.role)">
+              {{ getRoleLabel(user.role) }}
+            </span>
+          </td>
+          <td>
+            <span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">
+              {{ user.isActive ? 'Actif' : 'Inactif' }}
+            </span>
+          </td>
+          <td>{{ user.createdAt | date:'dd/MM/yyyy' }}</td>
+          <td class="actions">
+            <button 
+              class="btn-icon" 
+              (click)="toggleUserStatus(user.id)"
+              [title]="user.isActive ? 'Désactiver' : 'Activer'">
+              {{ user.isActive ? '🔒' : '🔓' }}
+            </button>
+            <button 
+              class="btn-icon" 
+              (click)="deleteUser(user.id, user.email)"
+              title="Supprimer">
+              🗑️
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Empty State -->
+    <div *ngIf="users.length === 0" class="empty-state">
+      <p>Aucun utilisateur trouvé</p>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div *ngIf="!loading && totalPages > 1" class="pagination">
+    <button 
+      class="btn btn-secondary" 
+      (click)="previousPage()" 
+      [disabled]="currentPage === 1">
+      ← Précédent
+    </button>
+    <span class="page-info">Page {{ currentPage }} sur {{ totalPages }}</span>
+    <button 
+      class="btn btn-secondary" 
+      (click)="nextPage()" 
+      [disabled]="currentPage === totalPages">
+      Suivant →
+    </button>
+  </div>
+</div>

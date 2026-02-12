@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons+Outlined');
+
+:root {
+  --bg-0: #f6f4ef;
+  --bg-1: #fffdf8;
+  --surface: #ffffff;
+  --surface-soft: #f4efe5;
+  --ink-0: #221f1a;
+  --ink-1: #4b443a;
+  --ink-2: #7b7265;
+
+  --brand: #d05a2d;
+  --brand-strong: #af4119;
+  --accent: #0f8a77;
+  --line: #e7dece;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  --shadow-soft: 0 14px 38px rgba(70, 45, 18, 0.08);
+  --shadow-card: 0 24px 40px rgba(70, 45, 18, 0.12);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  color: var(--ink-0);
+  background:
+    radial-gradient(circle at 5% -10%, #ffe4bf 0%, rgba(255, 228, 191, 0) 40%),
+    radial-gradient(circle at 98% 8%, #d6f3eb 0%, rgba(214, 243, 235, 0) 34%),
+    var(--bg-0);
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+  color: var(--ink-1);
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.page-enter {
+  animation: page-enter 0.5s ease both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mat-mdc-raised-button.mat-primary {
+  --mdc-protected-button-container-color: var(--brand);
+  --mdc-protected-button-label-text-color: #fff;
+}
+
+.mat-mdc-unelevated-button.mat-primary {
+  --mdc-filled-button-container-color: var(--brand);
+  --mdc-filled-button-label-text-color: #fff;
+}
+
+.mat-mdc-outlined-button {
+  border-color: var(--line) !important;
+}
+
+/* Inline super-admin components theme harmonization */
+.employees-container,
+.clients-container,
+.products-management,
+.orders-container {
+  padding: 0 2px !important;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+
+  .header h1 {
+    color: var(--ink-0) !important;
+  }
+
+  .header p,
+  .subtitle,
+  .stat-label,
+  .customer-email,
+  .info-row .label {
+    color: var(--ink-2) !important;
+  }
+
+  .stat-card,
+  .employee-card,
+  .client-card,
+  .product-card,
+  .table-container,
+  .stats-row .stat-badge {
+    border-radius: var(--radius-lg) !important;
+    border: 1px solid var(--line) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    box-shadow: var(--shadow-soft) !important;
+  }
+
+  .btn,
+  .btn-primary {
+    background: var(--brand) !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+    border: none !important;
+  }
+
+  .btn-secondary {
+    background: #7d6f5d !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+  }
+
+  .btn:hover,
+  .btn-primary:hover,
+  .btn-secondary:hover {
+    filter: brightness(0.96) !important;
+  }
+
+  .form-control,
+  .filter-select,
+  .tier-select {
+    border: 1px solid var(--line) !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+  }
+
+  .type-badge,
+  .badge,
+  .status {
+    border-radius: 999px !important;
+  }
+
+  .error,
+  .alert-error {
+    background: #fff3ef !important;
+    border: 1px solid #f5c5b7 !important;
+    color: #b92016 !important;
+    border-radius: var(--radius-md) !important;
+  }
+}

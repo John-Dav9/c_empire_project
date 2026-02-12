@@ -1,0 +1,115 @@
+<div class="payment-container">
+  <button mat-icon-button [routerLink]="['/shop/cart']" class="back-btn">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+
+  <h1>Paiement</h1>
+
+  <mat-card class="payment-card app-shell-card">
+    <mat-card-content>
+      <mat-stepper linear>
+        <!-- Step 1: Order Summary -->
+        <mat-step [stepControl]="formGroup" editable="false">
+          <ng-template matStepLabel>Résumé de la commande</ng-template>
+          <div class="order-summary">
+            <div class="summary-row">
+              <span>Montant:</span>
+              <span class="amount">{{ amount | currency:'XOF' }}</span>
+            </div>
+            <div class="summary-row">
+              <span>Articles dans le panier:</span>
+              <span>{{ cartItems }}</span>
+            </div>
+            <button mat-raised-button matStepperNext>
+              Continuer
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- Step 2: Select Payment Method -->
+        <mat-step [stepControl]="formGroup">
+          <ng-template matStepLabel>Méthode de paiement</ng-template>
+          <form [formGroup]="formGroup">
+            <div class="payment-methods">
+              <div 
+                *ngFor="let method of paymentMethods"
+                class="payment-method"
+                [class.selected]="formGroup.get('method')?.value === method.id"
+                (click)="selectPaymentMethod(method.id)"
+              >
+                <mat-icon>{{ method.icon }}</mat-icon>
+                <div class="method-info">
+                  <h3>{{ method.name }}</h3>
+                  <p>{{ method.description }}</p>
+                </div>
+                <mat-icon class="check" *ngIf="formGroup.get('method')?.value === method.id">
+                  check_circle
+                </mat-icon>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button mat-stroked-button matStepperPrevious>
+                Retour
+              </button>
+              <button mat-raised-button color="primary" matStepperNext>
+                Continuer
+              </button>
+            </div>
+          </form>
+        </mat-step>
+
+        <!-- Step 3: Billing Information -->
+        <mat-step [stepControl]="billingForm">
+          <ng-template matStepLabel>Informations de facturation</ng-template>
+          <form [formGroup]="billingForm">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Email</mat-label>
+              <input matInput formControlName="email" type="email" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Téléphone</mat-label>
+              <input matInput formControlName="phone" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Adresse</mat-label>
+              <input matInput formControlName="address" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Ville</mat-label>
+              <input matInput formControlName="city" />
+            </mat-form-field>
+
+            <div class="form-actions">
+              <button mat-stroked-button matStepperPrevious>
+                Retour
+              </button>
+              <button 
+                mat-raised-button 
+                color="primary" 
+                (click)="submitPayment()"
+                [disabled]="billingForm.invalid || loading"
+              >
+                <mat-icon *ngIf="loading">hourglass_empty</mat-icon>
+                <span *ngIf="!loading">Effectuer le paiement</span>
+                <span *ngIf="loading">Traitement...</span>
+              </button>
+            </div>
+          </form>
+        </mat-step>
+      </mat-stepper>
+    </mat-card-content>
+  </mat-card>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+
+  <div *ngIf="success" class="success-message">
+    <mat-icon>check_circle</mat-icon>
+    <p>Paiement effectué avec succès!</p>
+  </div>
+</div>

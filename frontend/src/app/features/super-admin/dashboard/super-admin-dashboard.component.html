@@ -1,0 +1,83 @@
+<div class="super-admin-dashboard page-enter">
+  <div class="header">
+    <h1>Tableau de bord Super Administrateur</h1>
+    <p class="subtitle">Gestion complète du système</p>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Chargement des statistiques...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error">
+    <p>{{ error }}</p>
+    <button class="btn btn-primary" (click)="loadStats()">Réessayer</button>
+  </div>
+
+  <!-- Stats Overview -->
+  <div *ngIf="stats && !loading" class="stats-overview">
+    <div class="stat-card app-shell-card">
+      <div class="stat-value">{{ stats.totalUsers }}</div>
+      <div class="stat-label">Utilisateurs Total</div>
+    </div>
+    <div class="stat-card app-shell-card">
+      <div class="stat-value">{{ stats.activeUsers }}</div>
+      <div class="stat-label">Utilisateurs Actifs</div>
+    </div>
+    <div class="stat-card app-shell-card">
+      <div class="stat-value">{{ stats.superAdminCount }}</div>
+      <div class="stat-label">Super Admins</div>
+    </div>
+    <div class="stat-card app-shell-card">
+      <div class="stat-value">{{ stats.newUsersThisMonth }}</div>
+      <div class="stat-label">Nouveaux ce mois</div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading" class="cards-grid">
+    <div class="card app-shell-card">
+      <div class="card-icon">👥</div>
+      <h3>Gestion des Utilisateurs</h3>
+      <p>Gérez tous les utilisateurs du système</p>
+      <div class="stat-badge" *ngIf="stats">{{ stats.totalUsers }} utilisateurs</div>
+      <button class="btn btn-primary" (click)="navigateToUsers()">Gérer les utilisateurs</button>
+    </div>
+
+    <div class="card app-shell-card">
+      <div class="card-icon">🏢</div>
+      <h3>Gestion des Secteurs</h3>
+      <p>Créez et gérez les secteurs d'activité</p>
+      <button class="btn btn-primary" (click)="navigateToSectors()">Gérer les secteurs</button>
+    </div>
+
+    <div class="card app-shell-card">
+      <div class="card-icon">📋</div>
+      <h3>Gestion des Tâches</h3>
+      <p>Vue complète de toutes les tâches</p>
+      <button class="btn btn-primary" (click)="navigateToTasks()">Gérer les tâches</button>
+    </div>
+
+    <div class="card app-shell-card">
+      <div class="card-icon">🎉</div>
+      <h3>Promotions</h3>
+      <p>Créez et gérez les promotions</p>
+      <button class="btn btn-primary" (click)="navigateToPromotions()">Gérer les promotions</button>
+    </div>
+
+    <div class="card app-shell-card">
+      <div class="card-icon">📊</div>
+      <h3>Statistiques</h3>
+      <p>Statistiques complètes du système</p>
+      <button class="btn btn-primary" (click)="navigateToStats()">Voir les statistiques</button>
+    </div>
+
+    <div class="card app-shell-card">
+      <div class="card-icon">📜</div>
+      <h3>Logs Système</h3>
+      <p>Consultez les journaux d'activité</p>
+      <button class="btn btn-primary" (click)="navigateToLogs()">Voir les logs</button>
+    </div>
+  </div>
+</div>

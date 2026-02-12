@@ -1,0 +1,129 @@
+<div class="user-list-container page-enter">
+  <div class="header">
+    <h1>Gestion des utilisateurs</h1>
+    <p class="subtitle">Total: {{ total }} utilisateur{{ total > 1 ? 's' : '' }}</p>
+  </div>
+
+  <div class="filters app-shell-card">
+    <div class="search-box">
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        (keyup.enter)="onSearch()"
+        placeholder="Rechercher par nom ou email..."
+        class="search-input"
+      />
+      <button (click)="onSearch()" class="btn btn-primary">🔍 Rechercher</button>
+    </div>
+
+    <div class="filter-row">
+      <select [(ngModel)]="roleFilter" (change)="onFilterChange()" class="filter-select">
+        <option value="">Tous les rôles</option>
+        <option [value]="UserRole.CLIENT">Client</option>
+        <option [value]="UserRole.EMPLOYEE">Employé</option>
+        <option [value]="UserRole.ADMIN">Admin</option>
+        <option [value]="UserRole.SUPER_ADMIN">Super Admin</option>
+      </select>
+
+      <select [(ngModel)]="statusFilter" (change)="onFilterChange()" class="filter-select">
+        <option value="">Tous les statuts</option>
+        <option value="active">Actif</option>
+        <option value="inactive">Inactif</option>
+      </select>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <p>Chargement...</p>
+  </div>
+
+  <div *ngIf="!loading" class="table-container app-shell-card">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Nom</th>
+          <th>Téléphone</th>
+          <th>Rôle</th>
+          <th>Statut</th>
+          <th>Date d'inscription</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users">
+          <td>{{ user.email }}</td>
+          <td>{{ user.firstname }} {{ user.lastname }}</td>
+          <td>{{ user.phone || '-' }}</td>
+          <td>
+            <span class="badge" [ngClass]="getRoleBadgeClass(user.role)">
+              {{ getRoleLabel(user.role) }}
+            </span>
+          </td>
+          <td>
+            <span class="badge" [ngClass]="user.isActive ? 'badge-active' : 'badge-inactive'">
+              {{ user.isActive ? 'Actif' : 'Inactif' }}
+            </span>
+          </td>
+          <td>{{ formatDate(user.createdAt) }}</td>
+          <td>
+            <div class="actions">
+              <button 
+                *ngIf="user.role === UserRole.CLIENT || user.role === UserRole.EMPLOYEE"
+                (click)="promoteUser(user)"
+                class="btn btn-small btn-promote"
+                title="Promouvoir en Admin"
+              >
+                ⬆️ Promouvoir
+              </button>
+              <button 
+                *ngIf="user.role === UserRole.ADMIN"
+                (click)="demoteUser(user)"
+                class="btn btn-small btn-demote"
+                title="Rétrograder en Client"
+              >
+                ⬇️ Rétrograder
+              </button>
+              <button
+                (click)="toggleUserStatus(user)"
+                class="btn btn-small btn-toggle"
+                [title]="user.isActive ? 'Désactiver' : 'Activer'"
+              >
+                {{ user.isActive ? '🔒' : '🔓' }}
+              </button>
+              <button
+                (click)="deleteUser(user)"
+                class="btn btn-small btn-danger"
+                title="Supprimer"
+              >
+                🗑️
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="users.length === 0" class="no-data">
+      <p>Aucun utilisateur trouvé</p>
+    </div>
+  </div>
+
+  <div *ngIf="totalPages > 1" class="pagination">
+    <button 
+      (click)="changePage(page - 1)" 
+      [disabled]="page === 1"
+      class="btn btn-secondary"
+    >
+      ← Précédent
+    </button>
+    <span class="page-info">Page {{ page }} sur {{ totalPages }}</span>
+    <button 
+      (click)="changePage(page + 1)" 
+      [disabled]="page === totalPages"
+      class="btn btn-secondary"
+    >
+      Suivant →
+    </button>
+  </div>
+</div>

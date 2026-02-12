@@ -1,0 +1,53 @@
+<div class="product-list-container">
+  <div class="header app-shell-card">
+    <h1>Nos Produits</h1>
+    <p class="subtitle">Découvrez une sélection pensée pour l’expérience client.</p>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <mat-spinner></mat-spinner>
+  </div>
+
+  <div *ngIf="!loading" class="products-grid">
+    <mat-card *ngFor="let product of products" class="product-card app-shell-card">
+      <mat-card-header>
+        <div class="product-image" *ngIf="product.image; else noImage">
+          <img [src]="product.image" [alt]="product.name" />
+        </div>
+        <ng-template #noImage>
+          <div class="product-image placeholder">
+            <mat-icon>shopping_cart</mat-icon>
+          </div>
+        </ng-template>
+      </mat-card-header>
+      <mat-card-content>
+        <h2>{{ product.name }}</h2>
+        <p class="description">{{ product.description | slice:0:100 }}...</p>
+        <div class="meta">
+          <mat-chip>{{ product.category || 'Général' }}</mat-chip>
+          <span class="stock" [class.low]="product.stock < 5">
+            Stock: {{ product.stock }}
+          </span>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <span class="price">{{ product.price | currency:'XOF' }}</span>
+        <button mat-raised-button color="primary" [routerLink]="['/shop/product', product.id]">
+          Détails
+        </button>
+        <button mat-icon-button (click)="addToCart(product)">
+          <mat-icon>add_shopping_cart</mat-icon>
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <div *ngIf="!loading && products.length === 0" class="no-products">
+    <mat-icon>inbox</mat-icon>
+    <h2>Aucun produit trouvé</h2>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+</div>

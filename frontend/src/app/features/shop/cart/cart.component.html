@@ -1,0 +1,116 @@
+<div class="cart-container">
+  <button mat-icon-button [routerLink]="['/shop']" class="back-btn">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+
+  <h1>Panier</h1>
+
+  <div *ngIf="items.length === 0" class="empty-cart">
+    <mat-icon>shopping_cart</mat-icon>
+    <h2>Votre panier est vide</h2>
+    <button mat-raised-button color="primary" [routerLink]="['/shop']">
+      Continuer vos achats
+    </button>
+  </div>
+
+  <div *ngIf="items.length > 0" class="cart-content">
+    <mat-card class="items-card app-shell-card">
+      <mat-card-content>
+        <table mat-table [dataSource]="items" class="items-table">
+          <!-- Image Column -->
+          <ng-container matColumnDef="image">
+            <th mat-header-cell></th>
+            <td mat-cell *matCellDef="let item">
+              <div class="item-image" *ngIf="item.image">
+                <img [src]="item.image" [alt]="item.name" />
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Product Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell>Produit</th>
+            <td mat-cell *matCellDef="let item">{{ item.name }}</td>
+          </ng-container>
+
+          <!-- Price Column -->
+          <ng-container matColumnDef="price">
+            <th mat-header-cell>Prix unitaire</th>
+            <td mat-cell *matCellDef="let item">{{ item.price | currency:'XOF' }}</td>
+          </ng-container>
+
+          <!-- Quantity Column -->
+          <ng-container matColumnDef="quantity">
+            <th mat-header-cell>Quantité</th>
+            <td mat-cell *matCellDef="let item; let i = index">
+              <button mat-icon-button (click)="decreaseQuantity(i)" [disabled]="item.quantity <= 1">
+                <mat-icon>remove</mat-icon>
+              </button>
+              <span class="quantity">{{ item.quantity }}</span>
+              <button mat-icon-button (click)="increaseQuantity(i)">
+                <mat-icon>add</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <!-- Total Column -->
+          <ng-container matColumnDef="total">
+            <th mat-header-cell>Total</th>
+            <td mat-cell *matCellDef="let item">{{ (item.price * item.quantity) | currency:'XOF' }}</td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell></th>
+            <td mat-cell *matCellDef="let item; let i = index">
+              <button mat-icon-button color="warn" (click)="removeItem(i)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="summary-card app-shell-card">
+      <mat-card-header>
+        <mat-card-title>Résumé</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="summary-row">
+          <span>Sous-total:</span>
+          <span>{{ subtotal | currency:'XOF' }}</span>
+        </div>
+        <div class="summary-row">
+          <span>Livraison:</span>
+          <span>{{ shipping | currency:'XOF' }}</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total:</span>
+          <span>{{ total | currency:'XOF' }}</span>
+        </div>
+
+        <button 
+          mat-raised-button 
+          color="primary" 
+          class="checkout-btn"
+          [routerLink]="['/payments/checkout']"
+          [queryParams]="{ amount: total }"
+        >
+          Procéder au paiement
+        </button>
+
+        <button 
+          mat-stroked-button 
+          class="continue-btn"
+          [routerLink]="['/shop']"
+        >
+          Continuer vos achats
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
