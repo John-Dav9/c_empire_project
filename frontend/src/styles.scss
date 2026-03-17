@@ -1,28 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons+Outlined');
 
 :root {
-  --bg-0: #f6f4ef;
-  --bg-1: #fffdf8;
+  --bg-0: #f2f7fb;
+  --bg-1: #ffffff;
   --surface: #ffffff;
-  --surface-soft: #f4efe5;
-  --ink-0: #221f1a;
-  --ink-1: #4b443a;
-  --ink-2: #7b7265;
+  --surface-soft: #eef4f9;
+  --ink-0: #112134;
+  --ink-1: #334a63;
+  --ink-2: #667b94;
 
-  --brand: #d05a2d;
-  --brand-strong: #af4119;
-  --accent: #0f8a77;
-  --line: #e7dece;
+  --brand: #1e6ee7;
+  --brand-strong: #1256b9;
+  --accent: #12a4a6;
+  --line: #d9e3ee;
 
   --radius-sm: 10px;
   --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
 
-  --shadow-soft: 0 14px 38px rgba(70, 45, 18, 0.08);
-  --shadow-card: 0 24px 40px rgba(70, 45, 18, 0.12);
+  --shadow-soft: 0 14px 36px rgba(26, 56, 92, 0.1);
+  --shadow-card: 0 24px 48px rgba(19, 41, 70, 0.14);
+
+  --card-tint-a: linear-gradient(160deg, #ffffff 0%, #f1f7ff 100%);
+  --card-tint-b: linear-gradient(160deg, #ffffff 0%, #eefbf9 100%);
+  --card-tint-c: linear-gradient(160deg, #ffffff 0%, #f5f3ff 100%);
+  --card-tint-d: linear-gradient(160deg, #ffffff 0%, #fff6f2 100%);
 }
 
 *,
@@ -39,11 +44,12 @@ body {
 }
 
 body {
-  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
   color: var(--ink-0);
   background:
-    radial-gradient(circle at 5% -10%, #ffe4bf 0%, rgba(255, 228, 191, 0) 40%),
-    radial-gradient(circle at 98% 8%, #d6f3eb 0%, rgba(214, 243, 235, 0) 34%),
+    radial-gradient(circle at 0% 0%, rgba(74, 140, 236, 0.2) 0%, rgba(74, 140, 236, 0) 42%),
+    radial-gradient(circle at 100% 6%, rgba(18, 164, 166, 0.15) 0%, rgba(18, 164, 166, 0) 34%),
+    radial-gradient(circle at 50% 120%, rgba(80, 122, 172, 0.1) 0%, rgba(80, 122, 172, 0) 38%),
     var(--bg-0);
   line-height: 1.45;
 }
@@ -54,8 +60,8 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Fraunces', Georgia, serif;
-  letter-spacing: -0.02em;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  letter-spacing: -0.015em;
   margin: 0;
 }
 
@@ -69,11 +75,109 @@ a {
 }
 
 .app-shell-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: var(--card-tint-a);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(167, 189, 214, 0.98);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+/* Harmonisation des arrondis sur les cartes Angular Material */
+.mat-mdc-card,
+.mdc-card {
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden;
+}
+
+/* Cartes "compactes" (liste/produits/table) : arrondi un peu moindre mais visible */
+.product-card,
+.card,
+.table-container,
+.items-card,
+.summary-card {
+  border-radius: var(--radius-md) !important;
+}
+
+.app-shell-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(30, 110, 231, 0.34);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.app-shell-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(30, 110, 231, 0.72), rgba(18, 164, 166, 0.72));
+  opacity: 0.55;
+}
+
+.app-shell-card::after {
+  content: '';
+  position: absolute;
+  right: -56px;
+  top: -56px;
+  width: 170px;
+  height: 170px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.toolbar.app-shell-card::before,
+.toolbar.app-shell-card::after,
+.sidenav.app-shell-card::before,
+.sidenav.app-shell-card::after,
+.summary-card.app-shell-card::after {
+  display: none;
+}
+
+/* Alternance de teintes pour éviter que les cartes se fondent dans le fond */
+.products-grid .app-shell-card:nth-child(4n + 1),
+.grid .app-shell-card:nth-child(4n + 1),
+.cards .app-shell-card:nth-child(4n + 1) {
+  background: var(--card-tint-a);
+  border-color: rgba(157, 190, 231, 0.98);
+}
+
+.products-grid .app-shell-card:nth-child(4n + 2),
+.grid .app-shell-card:nth-child(4n + 2),
+.cards .app-shell-card:nth-child(4n + 2) {
+  background: var(--card-tint-b);
+  border-color: rgba(152, 213, 211, 0.98);
+}
+
+.products-grid .app-shell-card:nth-child(4n + 3),
+.grid .app-shell-card:nth-child(4n + 3),
+.cards .app-shell-card:nth-child(4n + 3) {
+  background: var(--card-tint-c);
+  border-color: rgba(188, 176, 236, 0.95);
+}
+
+.products-grid .app-shell-card:nth-child(4n + 4),
+.grid .app-shell-card:nth-child(4n + 4),
+.cards .app-shell-card:nth-child(4n + 4) {
+  background: var(--card-tint-d);
+  border-color: rgba(236, 190, 166, 0.92);
+}
+
+/* Renfort visuel pour tables/listes qui utilisaient des fonds trop proches */
+.table-container.app-shell-card,
+.items-card.app-shell-card,
+.summary-card.app-shell-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-color: rgba(161, 187, 218, 0.98);
+}
+
+.table-container.app-shell-card::before,
+.items-card.app-shell-card::before,
+.summary-card.app-shell-card::before {
+  opacity: 0.72;
 }
 
 .page-enter {
@@ -103,6 +207,25 @@ a {
 
 .mat-mdc-outlined-button {
   border-color: var(--line) !important;
+}
+
+.mat-mdc-stroked-button:not(:disabled),
+.mat-mdc-outlined-button:not(:disabled) {
+  color: var(--ink-0) !important;
+}
+
+.mat-mdc-button-base {
+  border-radius: 12px !important;
+}
+
+.mat-mdc-form-field-focus-overlay {
+  background: transparent !important;
+}
+
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: rgba(30, 110, 231, 0.6) !important;
 }
 
 /* Inline super-admin components theme harmonization */
@@ -147,7 +270,7 @@ a {
   }
 
   .btn-secondary {
-    background: #7d6f5d !important;
+    background: #4b627d !important;
     color: #fff !important;
     border-radius: 10px !important;
   }
@@ -174,9 +297,9 @@ a {
 
   .error,
   .alert-error {
-    background: #fff3ef !important;
-    border: 1px solid #f5c5b7 !important;
-    color: #b92016 !important;
+    background: #fff4f3 !important;
+    border: 1px solid #f0c7c3 !important;
+    color: #ad2f2a !important;
     border-radius: var(--radius-md) !important;
   }
 }

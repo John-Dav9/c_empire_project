@@ -1,8 +1,18 @@
 import { Routes } from '@angular/router';
 import { EmployeeDashboardComponent } from './dashboard/employee-dashboard.component';
 import { EmployeeGuard } from './guards/employee.guard';
+import { EmployeeLayoutComponent } from './layout/employee-layout.component';
+import { EmployeeTodoMissionsComponent } from './todo-missions/employee-todo-missions.component';
 
 export const employeeRoutes: Routes = [
-  { path: 'dashboard', component: EmployeeDashboardComponent, canActivate: [EmployeeGuard] },
-  { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
+  {
+    path: '',
+    canActivate: [EmployeeGuard],
+    component: EmployeeLayoutComponent,
+    children: [
+      { path: 'dashboard', component: EmployeeDashboardComponent },
+      { path: 'todo/missions', component: EmployeeTodoMissionsComponent },
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+    ],
+  },
 ];

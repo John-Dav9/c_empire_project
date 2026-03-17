@@ -5,20 +5,12 @@
   <mat-card class="signin-card app-shell-card page-enter">
     <div class="logo-section">
       <div class="brand-video-wrap">
-        <video
-          #brandVideo
+        <img
           class="brand-video"
-          autoplay
-          loop
-          muted
-          playsinline
-          preload="auto"
-          disablePictureInPicture
-          disableRemotePlayback
-          aria-label="Logo animé C'EMPIRE"
-        >
-          <source src="/media/brand-loop.mp4" type="video/mp4" />
-        </video>
+          src="/media/logos/cempire-log.jpg"
+          alt="Logo C'EMPIRE"
+          loading="lazy"
+        />
       </div>
       <h1 class="brand-name">C'EMPIRE</h1>
       <p class="brand-subtitle">Connexion sécurisée</p>
@@ -70,7 +62,7 @@
         </button>
 
         <p class="forgot-password">
-          <a href="#">Mot de passe oublié?</a>
+          <a routerLink="/auth/forgot-password">Mot de passe oublié?</a>
         </p>
 
         <div *ngIf="error" class="error-message">

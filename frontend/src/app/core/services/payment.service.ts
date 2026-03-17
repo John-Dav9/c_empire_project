@@ -30,7 +30,9 @@ export class PaymentService {
   }
 
   verifyPayment(providerTransactionId: string): Observable<any> {
-    return this.apiService.post<any>('/payments/verify', { providerTransactionId });
+    return this.apiService.post<any>('/payments/verify', {
+      providerTransactionId,
+    });
   }
 
   handleWebhook(provider: string, payload: any): Observable<any> {

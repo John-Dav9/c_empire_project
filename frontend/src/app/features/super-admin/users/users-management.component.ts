@@ -30,6 +30,7 @@ export class UsersManagementComponent implements OnInit {
   totalUsers = 0;
 
   readonly userRoles = Object.values(UserRole);
+  readonly UserRole = UserRole;
 
   ngOnInit() {
     this.loadUsers();
@@ -92,6 +93,36 @@ export class UsersManagementComponent implements OnInit {
         error: (error) => {
           console.error('Error updating role:', error);
           alert('Erreur lors de la mise à jour du rôle');
+        }
+      });
+    }
+  }
+
+  promoteToAdmin(user: User) {
+    if (confirm(`Promouvoir ${user.email} au rôle Admin ?`)) {
+      this.adminService.updateUserRole(user.id, UserRole.ADMIN).subscribe({
+        next: () => {
+          this.loadUsers();
+          alert('Utilisateur promu en Admin avec succès');
+        },
+        error: (error) => {
+          console.error('Error promoting user to admin:', error);
+          alert(`Erreur: ${error.error?.message || 'Impossible de promouvoir cet utilisateur'}`);
+        }
+      });
+    }
+  }
+
+  promoteToSuperAdmin(user: User) {
+    if (confirm(`Promouvoir ${user.email} au rôle Super Admin ?`)) {
+      this.adminService.updateUserRole(user.id, UserRole.SUPER_ADMIN).subscribe({
+        next: () => {
+          this.loadUsers();
+          alert('Utilisateur promu en Super Admin avec succès');
+        },
+        error: (error) => {
+          console.error('Error promoting user to super admin:', error);
+          alert(`Erreur: ${error.error?.message || 'Impossible de promouvoir cet utilisateur'}`);
         }
       });
     }

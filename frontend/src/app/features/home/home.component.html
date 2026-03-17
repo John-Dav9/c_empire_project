@@ -31,25 +31,40 @@
     </div>
 
     <div class="hero-content">
-      <span class="eyebrow">Plateforme Multi-services</span>
-      <h1>Tout C'EMPIRE, dans une seule expérience fluide.</h1>
-      <p>
-        Boutique, livraison, grill, nettoyage, événements et tâches: un design unique,
-        une navigation claire, un parcours utilisateur continu.
-      </p>
+      <div class="hero-brand-mark" *ngIf="brandLogoSrc">
+        <img
+          [src]="brandLogoSrc"
+          alt="Logo C'EMPIRE"
+          loading="lazy"
+          (error)="onBrandLogoError()"
+        />
+      </div>
+      <span class="eyebrow">{{ homeContent.eyebrow }}</span>
+      <h1>{{ homeContent.heroTitle }}</h1>
+      <p>{{ homeContent.heroText }}</p>
       <div class="hero-actions">
-        <button mat-raised-button color="primary" [routerLink]="['/shop']">
-          Démarrer par la boutique
+        <button
+          mat-raised-button
+          color="primary"
+          class="home-btn home-btn-primary"
+          [routerLink]="[resolveCampaignRoute(homeContent.primaryCtaUrl)]"
+        >
+          {{ homeContent.primaryCtaLabel }}
         </button>
-        <button mat-stroked-button [routerLink]="['/express']">
-          Tester C'Express
+        <button
+          mat-stroked-button
+          class="home-btn home-btn-secondary"
+          [routerLink]="[resolveCampaignRoute(homeContent.secondaryCtaUrl)]"
+        >
+          {{ homeContent.secondaryCtaLabel }}
         </button>
       </div>
     </div>
     <div class="hero-panel">
-      <div class="kpi"><strong>+10k</strong><span>Produits actifs</span></div>
-      <div class="kpi"><strong>50k</strong><span>Clients servis</span></div>
-      <div class="kpi"><strong>6</strong><span>Services connectés</span></div>
+      <div class="kpi" *ngFor="let stat of homeContent.stats">
+        <strong>{{ stat.value }}</strong>
+        <span>{{ stat.label }}</span>
+      </div>
     </div>
   </section>
 
@@ -62,24 +77,62 @@
     <div class="sector-stories">
       <article
         class="sector-story app-shell-card"
-        [class.is-reversed]="i % 2 === 1"
+        [ngClass]="[sectorTheme(sector.route), i % 2 === 1 ? 'is-reversed' : '']"
         *ngFor="let sector of sectorStories; let i = index"
       >
         <div class="sector-copy">
-          <p class="sector-kicker">Secteur</p>
+          <div class="sector-logo-wrap top" *ngIf="sector.logoSrc">
+            <img
+              class="sector-logo"
+              [src]="sector.logoSrc"
+              [alt]="sector.logoAlt || ('Logo ' + sector.name)"
+              loading="lazy"
+              (error)="onSectorLogoError(sector)"
+            />
+          </div>
           <h3>{{ sector.name }}</h3>
           <p class="sector-description">{{ sector.description }}</p>
-          <button mat-raised-button color="primary" [routerLink]="[sector.route]">
+          <button
+            mat-raised-button
+            color="primary"
+            class="home-btn home-btn-primary sector-cta-btn"
+            [routerLink]="[sector.route]"
+          >
             {{ sector.ctaLabel }}
           </button>
         </div>
 
-        <div class="sector-visual" role="region" [attr.aria-label]="'Story ' + sector.name">
+        <div
+          class="sector-visual"
+          role="region"
+          [attr.aria-label]="'Story ' + sector.name"
+          (mouseenter)="pauseSectorAutoplay()"
+          (mouseleave)="resumeSectorAutoplay()"
+        >
           <div class="sector-track" [style.transform]="sectorTransform(i)">
             <div class="sector-slide" *ngFor="let slide of sector.slides">
               <div class="sector-slide-bg" [style.background-image]="'url(' + slide.src + ')'"></div>
             </div>
           </div>
+
+          <button
+            *ngIf="sector.slides.length > 1"
+            class="sector-nav prev"
+            type="button"
+            (click)="prevSectorSlide(i)"
+            aria-label="Image précédente"
+          >
+            ‹
+          </button>
+          <button
+            *ngIf="sector.slides.length > 1"
+            class="sector-nav next"
+            type="button"
+            (click)="nextSectorSlide(i)"
+            aria-label="Image suivante"
+          >
+            ›
+          </button>
 
           <div class="sector-caption">
             <h4>{{ sector.slides[sectorSlideIndex[i]]?.title }}</h4>
@@ -87,22 +140,92 @@
           </div>
 
           <div class="sector-dots" *ngIf="sector.slides.length > 1">
-            <span
+            <button
+              type="button"
               class="sector-dot"
               *ngFor="let slide of sector.slides; let dotIndex = index"
               [class.active]="dotIndex === sectorSlideIndex[i]"
-            ></span>
+              (click)="setSectorSlide(i, dotIndex)"
+              [attr.aria-label]="'Aller a image ' + (dotIndex + 1)"
+            ></button>
+          </div>
+
+          <div class="sector-counter" *ngIf="sector.slides.length > 1">
+            {{ sectorSlideIndex[i] + 1 }}/{{ sector.slides.length }}
+          </div>
+
+          <div class="sector-thumbs" *ngIf="sector.slides.length > 1">
+            <button
+              type="button"
+              class="sector-thumb"
+              *ngFor="let slide of sector.slides; let thumbIndex = index"
+              [class.active]="thumbIndex === sectorSlideIndex[i]"
+              [style.background-image]="'url(' + slide.src + ')'"
+              (click)="setSectorSlide(i, thumbIndex)"
+              [attr.aria-label]="'Miniature image ' + (thumbIndex + 1)"
+            ></button>
           </div>
         </div>
       </article>
     </div>
   </section>
 
+  <section class="highlights app-shell-card" *ngIf="featuredCampaigns.length > 0 || featuredLoading">
+    <div class="section-head">
+      <h2>A la une</h2>
+      <p>Offres saisonnieres et packs speciaux selon les fetes de l'annee.</p>
+    </div>
+
+    <div class="highlight-loading" *ngIf="featuredLoading">Chargement des campagnes...</div>
+    <div class="highlight-error" *ngIf="highlightsError">{{ highlightsError }}</div>
+
+    <div class="campaign-grid" *ngIf="!featuredLoading">
+      <article class="campaign-card" *ngFor="let campaign of featuredCampaigns">
+        <header class="campaign-header">
+          <span class="campaign-pill">{{ campaign.tabLabel || ('Speciale ' + campaign.festivalName) }}</span>
+          <h3>{{ campaign.title }}</h3>
+        </header>
+
+        <div class="campaign-items" *ngIf="campaign.items?.length">
+          <a class="campaign-item" *ngFor="let item of campaign.items" [routerLink]="[resolveCampaignRoute(item.route)]">
+            <div class="campaign-item-image" *ngIf="item.imageUrl" [style.background-image]="'url(' + item.imageUrl + ')'"></div>
+            <div class="campaign-item-copy">
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.sector }}</span>
+              <p *ngIf="item.description">{{ item.description }}</p>
+            </div>
+          </a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="news app-shell-card" *ngIf="newsMessages.length > 0 || featuredLoading">
+    <div class="section-head">
+      <h2>Actualites</h2>
+      <p>Messages importants publies par l'administration.</p>
+    </div>
+
+    <div class="news-loading" *ngIf="featuredLoading">Chargement des actualites...</div>
+
+    <div class="news-list" *ngIf="!featuredLoading">
+      <article class="news-card" *ngFor="let news of newsMessages">
+        <h3>{{ news.title }}</h3>
+        <p>{{ news.message }}</p>
+      </article>
+    </div>
+  </section>
+
   <section class="cta app-shell-card">
-    <h2>Prêt à passer en mode production?</h2>
-    <p>Lancez un parcours d’achat complet et testez vos nouveaux flux.</p>
-    <button mat-raised-button color="primary" [routerLink]="['/shop/cart']">
-      Aller au panier
+    <h2>{{ homeContent.finalCtaTitle }}</h2>
+    <p>{{ homeContent.finalCtaText }}</p>
+    <button
+      mat-raised-button
+      color="primary"
+      class="home-btn home-btn-primary"
+      [routerLink]="[resolveCampaignRoute(homeContent.finalCtaUrl)]"
+    >
+      {{ homeContent.finalCtaLabel }}
     </button>
   </section>
 </div>

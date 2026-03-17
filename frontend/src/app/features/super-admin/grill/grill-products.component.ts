@@ -13,18 +13,23 @@ export class GrillProductsComponent {
     title: 'Produits C\'Grill',
     icon: '🍖',
     apiUrl: buildApiUrl('/grill/products'),
-    displayFields: ['name', 'description', 'price', 'category', 'isAvailable'],
+    listUrl: buildApiUrl('/grill/products/admin/all'),
+    createUrl: buildApiUrl('/grill/products/admin'),
+    updateUrl: buildApiUrl('/grill/products/admin'),
+    deleteUrl: buildApiUrl('/grill/products/admin'),
+    displayFields: ['title', 'description', 'price', 'category', 'stockQty', 'isAvailable'],
     fields: [
-      { name: 'name', label: 'Nom du produit', type: 'text', required: true },
+      { name: 'title', label: 'Nom du produit', type: 'text', required: true },
       { name: 'description', label: 'Description', type: 'textarea' },
       { name: 'price', label: 'Prix (FCFA)', type: 'number', required: true },
+      { name: 'stockQty', label: 'Stock', type: 'number' },
       { name: 'category', label: 'Catégorie', type: 'select', required: true, options: [
         { value: 'grilled', label: 'Grillades' },
         { value: 'sides', label: 'Accompagnements' },
         { value: 'drinks', label: 'Boissons' },
         { value: 'desserts', label: 'Desserts' }
       ]},
-      { name: 'imageUrl', label: 'URL Image', type: 'url' },
+      { name: 'images', label: 'Images (URLs)', type: 'url-list' },
       { name: 'isAvailable', label: 'Disponible', type: 'checkbox' }
     ]
   };

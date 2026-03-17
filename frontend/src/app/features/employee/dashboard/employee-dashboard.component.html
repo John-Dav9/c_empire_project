@@ -1,36 +1,32 @@
 <div class="employee-dashboard page-enter">
   <div class="header">
     <h1>Tableau de bord Employé</h1>
-    <p class="subtitle">Gérez vos tâches et votre activité</p>
+    <p class="subtitle">Vue opérationnelle des missions terrain et de l'activité immédiate</p>
+  </div>
+
+  <div class="state loading app-shell-card" *ngIf="loading">
+    <p>Chargement de l'activité employé...</p>
+  </div>
+
+  <div class="state error app-shell-card" *ngIf="error && !loading">
+    <p>{{ error }}</p>
   </div>
 
   <div class="cards-grid">
-    <div class="card app-shell-card">
-      <div class="card-icon">📋</div>
-      <h3>Mes Tâches</h3>
-      <p>Consultez et mettez à jour vos tâches assignées</p>
-      <button class="btn btn-primary">Voir mes tâches</button>
-    </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">🏢</div>
-      <h3>Mon Secteur</h3>
-      <p>Informations sur votre secteur d'activité</p>
-      <button class="btn btn-primary">Voir mon secteur</button>
-    </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">📊</div>
-      <h3>Statistiques</h3>
-      <p>Visualisez vos performances</p>
-      <button class="btn btn-primary">Voir mes stats</button>
-    </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">👤</div>
-      <h3>Mon Profil</h3>
-      <p>Gérez vos informations personnelles</p>
-      <button class="btn btn-primary">Modifier mon profil</button>
+    <div class="card app-shell-card" *ngFor="let card of cards">
+      <div class="card-top">
+        <div class="card-icon">{{ card.icon }}</div>
+        <span class="badge" *ngIf="card.badge">{{ card.badge }}</span>
+      </div>
+      <h3>{{ card.title }}</h3>
+      <p>{{ card.description }}</p>
+      <div class="metric" *ngIf="card.metric">{{ card.metric }}</div>
+      <a *ngIf="card.route; else disabledCta" class="btn btn-primary" [routerLink]="[card.route]">
+        {{ card.cta }}
+      </a>
+      <ng-template #disabledCta>
+        <button class="btn btn-muted" type="button" disabled>{{ card.cta }}</button>
+      </ng-template>
     </div>
   </div>
 </div>

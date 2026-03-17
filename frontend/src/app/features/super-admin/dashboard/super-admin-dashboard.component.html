@@ -1,83 +1,73 @@
-<div class="super-admin-dashboard page-enter">
-  <div class="header">
-    <h1>Tableau de bord Super Administrateur</h1>
-    <p class="subtitle">Gestion complète du système</p>
-  </div>
+<section class="super-admin-dashboard page-enter">
+  <header class="hero app-shell-card">
+    <div class="hero-copy">
+      <p class="kicker">Super Admin Control Tower</p>
+      <h1>Pilotage global de la plateforme C'EMPIRE</h1>
+      <p class="subtitle">
+        Centralisez les opérations CRUD, suivez les volumes par secteur et accédez
+        rapidement à chaque module métier. Les courses C'Express restent suivies dans
+        leur espace logistique dédié.
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" (click)="go('/super-admin/users')">
+          Gérer les utilisateurs
+        </button>
+        <button class="btn btn-secondary" (click)="go('/super-admin/orders')">
+          Suivi des commandes
+        </button>
+      </div>
+    </div>
 
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading">
+    <div class="hero-kpi">
+      <div class="kpi-card">
+        <span class="kpi-label">Utilisateurs total</span>
+        <strong>{{ stats?.totalUsers ?? 0 }}</strong>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Utilisateurs actifs</span>
+        <strong>{{ stats?.activeUsers ?? 0 }}</strong>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Nouveaux ce mois</span>
+        <strong>{{ stats?.newUsersThisMonth ?? 0 }}</strong>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Services intégrés</span>
+        <strong>{{ kpi.services }}</strong>
+      </div>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="state loading app-shell-card">
     <div class="spinner"></div>
-    <p>Chargement des statistiques...</p>
+    <p>Chargement du cockpit super-admin...</p>
   </div>
 
-  <!-- Error State -->
-  <div *ngIf="error && !loading" class="error">
+  <div *ngIf="error && !loading" class="state error app-shell-card">
     <p>{{ error }}</p>
-    <button class="btn btn-primary" (click)="loadStats()">Réessayer</button>
+    <button class="btn btn-primary" (click)="retry()">Réessayer</button>
   </div>
 
-  <!-- Stats Overview -->
-  <div *ngIf="stats && !loading" class="stats-overview">
-    <div class="stat-card app-shell-card">
-      <div class="stat-value">{{ stats.totalUsers }}</div>
-      <div class="stat-label">Utilisateurs Total</div>
-    </div>
-    <div class="stat-card app-shell-card">
-      <div class="stat-value">{{ stats.activeUsers }}</div>
-      <div class="stat-label">Utilisateurs Actifs</div>
-    </div>
-    <div class="stat-card app-shell-card">
-      <div class="stat-value">{{ stats.superAdminCount }}</div>
-      <div class="stat-label">Super Admins</div>
-    </div>
-    <div class="stat-card app-shell-card">
-      <div class="stat-value">{{ stats.newUsersThisMonth }}</div>
-      <div class="stat-label">Nouveaux ce mois</div>
-    </div>
-  </div>
-
-  <div *ngIf="!loading" class="cards-grid">
-    <div class="card app-shell-card">
-      <div class="card-icon">👥</div>
-      <h3>Gestion des Utilisateurs</h3>
-      <p>Gérez tous les utilisateurs du système</p>
-      <div class="stat-badge" *ngIf="stats">{{ stats.totalUsers }} utilisateurs</div>
-      <button class="btn btn-primary" (click)="navigateToUsers()">Gérer les utilisateurs</button>
+  <section *ngIf="!loading && !error" class="modules">
+    <div class="modules-head">
+      <h2>Modules de gestion</h2>
+      <p>{{ modules.length }} espaces CRUD disponibles</p>
     </div>
 
-    <div class="card app-shell-card">
-      <div class="card-icon">🏢</div>
-      <h3>Gestion des Secteurs</h3>
-      <p>Créez et gérez les secteurs d'activité</p>
-      <button class="btn btn-primary" (click)="navigateToSectors()">Gérer les secteurs</button>
+    <div class="modules-grid">
+      <article
+        class="module-card app-shell-card"
+        *ngFor="let module of modules"
+        [ngClass]="module.accentClass"
+      >
+        <div class="module-icon">{{ module.icon }}</div>
+        <h3>{{ module.label }}</h3>
+        <p>{{ module.description }}</p>
+        <div class="module-count">{{ module.count }} éléments</div>
+        <button class="btn btn-primary" (click)="go(module.route)">
+          Ouvrir le module
+        </button>
+      </article>
     </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">📋</div>
-      <h3>Gestion des Tâches</h3>
-      <p>Vue complète de toutes les tâches</p>
-      <button class="btn btn-primary" (click)="navigateToTasks()">Gérer les tâches</button>
-    </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">🎉</div>
-      <h3>Promotions</h3>
-      <p>Créez et gérez les promotions</p>
-      <button class="btn btn-primary" (click)="navigateToPromotions()">Gérer les promotions</button>
-    </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">📊</div>
-      <h3>Statistiques</h3>
-      <p>Statistiques complètes du système</p>
-      <button class="btn btn-primary" (click)="navigateToStats()">Voir les statistiques</button>
-    </div>
-
-    <div class="card app-shell-card">
-      <div class="card-icon">📜</div>
-      <h3>Logs Système</h3>
-      <p>Consultez les journaux d'activité</p>
-      <button class="btn btn-primary" (click)="navigateToLogs()">Voir les logs</button>
-    </div>
-  </div>
-</div>
+  </section>
+</section>

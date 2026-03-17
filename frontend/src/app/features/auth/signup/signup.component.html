@@ -5,20 +5,12 @@
   <mat-card class="signup-card app-shell-card page-enter">
     <div class="logo-section">
       <div class="brand-video-wrap">
-        <video
-          #brandVideo
+        <img
           class="brand-video"
-          autoplay
-          loop
-          muted
-          playsinline
-          preload="auto"
-          disablePictureInPicture
-          disableRemotePlayback
-          aria-label="Logo animé C'EMPIRE"
-        >
-          <source src="/media/brand-loop.mp4" type="video/mp4" />
-        </video>
+          src="/media/logos/cempire-log.jpg"
+          alt="Logo C'EMPIRE"
+          loading="lazy"
+        />
       </div>
       <h1 class="brand-name">C'EMPIRE</h1>
       <p class="brand-subtitle">Création de compte</p>
@@ -33,21 +25,20 @@
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <div class="name-row">
           <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Prénom</mat-label>
+            <mat-label>Prénom (optionnel)</mat-label>
             <input matInput formControlName="firstName" />
-            <mat-error *ngIf="form.get('firstName')?.hasError('required')">
-              Prénom requis
-            </mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
-            <mat-label>Nom</mat-label>
+            <mat-label>Nom (optionnel)</mat-label>
             <input matInput formControlName="lastName" />
-            <mat-error *ngIf="form.get('lastName')?.hasError('required')">
-              Nom requis
-            </mat-error>
           </mat-form-field>
         </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Téléphone (optionnel)</mat-label>
+          <input matInput formControlName="phone" />
+        </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Email</mat-label>

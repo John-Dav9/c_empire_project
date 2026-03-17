@@ -1,0 +1,61 @@
+<footer class="site-footer">
+  <section class="footer-top">
+    <div class="footer-col" *ngFor="let column of config.columns">
+      <h3>{{ column.title }}</h3>
+      <a *ngFor="let link of column.links" [href]="isExternal(link.url) ? link.url : null" [routerLink]="!isExternal(link.url) ? link.url : null">{{ link.label }}</a>
+    </div>
+
+    <div class="footer-promo">
+      <article class="seller-card">
+        <div>
+          <h4>{{ config.promoCard.title }}</h4>
+          <a [href]="isExternal(config.promoCard.buttonUrl) ? config.promoCard.buttonUrl : null" [routerLink]="!isExternal(config.promoCard.buttonUrl) ? config.promoCard.buttonUrl : null">{{ config.promoCard.buttonLabel }}</a>
+        </div>
+        <img [src]="config.promoCard.imageUrl" alt="Programme vendeur" />
+      </article>
+
+      <h3>{{ config.appSection.title }}</h3>
+      <ul class="feature-grid">
+        <li *ngFor="let feature of config.appSection.features">
+          <mat-icon>check_circle</mat-icon>
+          <span>{{ feature }}</span>
+        </li>
+      </ul>
+
+      <div class="store-badges">
+        <a [href]="isExternal(store.url) ? store.url : null" [routerLink]="!isExternal(store.url) ? store.url : null" class="store-badge" *ngFor="let store of config.appSection.stores">
+          <mat-icon>{{ store.icon }}</mat-icon>
+          <span>{{ store.label }}</span>
+        </a>
+      </div>
+
+      <h3>{{ config.appSection.socialTitle }}</h3>
+      <div class="social-row">
+        <a [href]="isExternal(social.url) ? social.url : null" [routerLink]="!isExternal(social.url) ? social.url : null" *ngFor="let social of config.appSection.social" class="social-btn">
+          <mat-icon>{{ social.icon }}</mat-icon>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="footer-middle">
+    <div class="badge-block">
+      <h3>{{ config.securitySection.title }}</h3>
+      <div class="badge-grid">
+        <span class="badge-chip" *ngFor="let badge of config.securitySection.badges">{{ badge }}</span>
+      </div>
+    </div>
+
+    <div class="badge-block">
+      <h3>{{ config.paymentSection.title }}</h3>
+      <div class="badge-grid">
+        <span class="badge-chip pay" *ngFor="let badge of config.paymentSection.badges">{{ badge }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="footer-bottom">
+    <span>{{ config.legal.copyright }}</span>
+    <a *ngFor="let link of config.legal.links" [href]="isExternal(link.url) ? link.url : null" [routerLink]="!isExternal(link.url) ? link.url : null">{{ link.label }}</a>
+  </section>
+</footer>

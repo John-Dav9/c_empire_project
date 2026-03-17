@@ -71,6 +71,20 @@
           </td>
           <td>{{ user.createdAt | date:'dd/MM/yyyy' }}</td>
           <td class="actions">
+            <button
+              *ngIf="user.role === UserRole.CLIENT || user.role === UserRole.EMPLOYEE"
+              class="btn btn-small btn-promote"
+              (click)="promoteToAdmin(user)"
+              title="Promouvoir en Admin">
+              ⬆️ Admin
+            </button>
+            <button
+              *ngIf="user.role === UserRole.ADMIN"
+              class="btn btn-small btn-promote-super"
+              (click)="promoteToSuperAdmin(user)"
+              title="Promouvoir en Super Admin">
+              ⭐ Super Admin
+            </button>
             <button 
               class="btn-icon" 
               (click)="toggleUserStatus(user.id)"

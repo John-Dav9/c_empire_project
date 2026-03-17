@@ -159,6 +159,8 @@
 
         &.actions {
           display: flex;
+          align-items: center;
+          flex-wrap: wrap;
           gap: 0.5rem;
         }
       }
@@ -220,6 +222,35 @@
 
     &:hover {
       transform: scale(1.15);
+    }
+  }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.38rem 0.62rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      filter: brightness(0.97);
+    }
+
+    &.btn-small {
+      line-height: 1.1;
+    }
+
+    &.btn-promote {
+      background: #1f8d7d;
+      color: #fff;
+    }
+
+    &.btn-promote-super {
+      background: #8c2c09;
+      color: #fff;
     }
   }
 

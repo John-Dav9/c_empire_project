@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,7 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -21,14 +21,13 @@ import { AuthService } from '../../../core/services/auth.service';
     MatButtonModule,
     MatCardModule,
     MatProgressSpinnerModule,
-    MatIconModule
+    MatIconModule,
+    RouterLink
   ],
   templateUrl: './signin.component.html',
   styleUrl: './signin.component.scss'
 })
-export class SigninComponent implements AfterViewInit {
-  @ViewChild('brandVideo') brandVideo?: ElementRef<HTMLVideoElement>;
-
+export class SigninComponent {
   form: FormGroup;
   loading = false;
   error: string | null = null;
@@ -59,21 +58,6 @@ export class SigninComponent implements AfterViewInit {
       default:
         return '/client/dashboard';
     }
-  }
-
-  ngAfterViewInit(): void {
-    const video = this.brandVideo?.nativeElement;
-    if (!video) return;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.volume = 0;
-    video.setAttribute('muted', '');
-    video.onvolumechange = () => {
-      if (video.volume !== 0 || !video.muted) {
-        video.volume = 0;
-        video.muted = true;
-      }
-    };
   }
 
   onSubmit(): void {

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -10,6 +10,7 @@ import { RouterLink, RouterOutlet, Router } from '@angular/router';
 import { AuthService, User } from '../../core/services/auth.service';
 import { Observable } from 'rxjs';
 import { UserRole } from '../../features/admin/models/admin.models';
+import { SiteFooterComponent } from '../footer/site-footer.component';
 
 @Component({
   selector: 'app-layout',
@@ -24,43 +25,87 @@ import { UserRole } from '../../features/admin/models/admin.models';
     MatMenuModule,
     RouterLink,
     RouterOutlet,
+    SiteFooterComponent,
   ],
   template: `
     <mat-toolbar class="toolbar app-shell-card">
-      <button mat-icon-button class="menu-btn" (click)="sidenav.toggle()">
-        <mat-icon>menu</mat-icon>
-      </button>
-
-      <a class="brand" routerLink="/">
-        <span class="brand-dot"></span>
-        <span>C'EMPIRE</span>
-      </a>
-
-      <nav class="top-nav">
-        <a *ngFor="let link of navLinks" [routerLink]="link.route">
-          {{ link.label }}
+      <div class="toolbar-left">
+        <a class="brand" routerLink="/">
+          <img
+            class="brand-logo"
+            src="/media/logos/cempire-log.jpg"
+            alt="Logo C'EMPIRE"
+          />
+          <span class="brand-name">C'EMPIRE</span>
         </a>
-      </nav>
 
-      <div *ngIf="currentUser$ | async as user" class="user-menu">
-        <span class="user-email">{{ user.email }}</span>
-        <button mat-icon-button [matMenuTriggerFor]="menu">
-          <mat-icon>account_circle</mat-icon>
+        <nav class="top-nav">
+          <a *ngFor="let link of navLinks" [routerLink]="link.route">
+            {{ link.label }}
+          </a>
+        </nav>
+      </div>
+
+      <div class="toolbar-right">
+        <a
+          class="cart-chip"
+          mat-stroked-button
+          [routerLink]="['/shop/cart']"
+          aria-label="Aller au panier"
+        >
+          <mat-icon>shopping_cart</mat-icon>
+          <span class="cart-label">Panier</span>
+        </a>
+
+        <ng-container *ngIf="currentUser$ | async as user; else guestProfile">
+          <a
+            *ngIf="isAdmin(user)"
+            class="admin-chip"
+            mat-stroked-button
+            [routerLink]="getAdminRoute(user)"
+          >
+            Admin
+          </a>
+
+          <button class="profile-chip" mat-button [matMenuTriggerFor]="menu">
+            <span class="profile-name">{{ getUserLabel(user) }}</span>
+            <mat-icon>account_circle</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu">
+            <button mat-menu-item routerLink="/profile">
+              <mat-icon>person</mat-icon>
+              <span>Profil</span>
+            </button>
+            <button
+              *ngIf="isAdmin(user)"
+              mat-menu-item
+              [routerLink]="getAdminRoute(user)"
+            >
+              <mat-icon>admin_panel_settings</mat-icon>
+              <span>Administration</span>
+            </button>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              <span>Déconnexion</span>
+            </button>
+          </mat-menu>
+        </ng-container>
+
+        <ng-template #guestProfile>
+          <a class="profile-chip" mat-button [routerLink]="['/auth/signin']">
+            <span class="profile-name">Connexion</span>
+            <mat-icon>account_circle</mat-icon>
+          </a>
+        </ng-template>
+
+        <button
+          mat-icon-button
+          class="menu-btn mobile-only"
+          (click)="sidenav.toggle()"
+          aria-label="Ouvrir le menu"
+        >
+          <mat-icon>menu</mat-icon>
         </button>
-        <mat-menu #menu="matMenu">
-          <button mat-menu-item routerLink="/profile">
-            <mat-icon>person</mat-icon>
-            <span>Profil</span>
-          </button>
-          <button *ngIf="isAdmin(user)" mat-menu-item routerLink="/admin">
-            <mat-icon>admin_panel_settings</mat-icon>
-            <span>Administration</span>
-          </button>
-          <button mat-menu-item (click)="logout()">
-            <mat-icon>logout</mat-icon>
-            <span>Déconnexion</span>
-          </button>
-        </mat-menu>
       </div>
     </mat-toolbar>
 
@@ -79,7 +124,7 @@ import { UserRole } from '../../features/admin/models/admin.models';
           <a
             mat-list-item
             *ngIf="(currentUser$ | async) && isAdmin((currentUser$ | async)!)"
-            routerLink="/admin"
+            [routerLink]="getAdminRoute((currentUser$ | async)!)"
             (click)="sidenav.close()"
           >
             <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
@@ -92,6 +137,7 @@ import { UserRole } from '../../features/admin/models/admin.models';
         <main class="content page-enter">
           <router-outlet></router-outlet>
         </main>
+        <app-site-footer></app-site-footer>
       </mat-sidenav-content>
     </mat-sidenav-container>
   `,
@@ -109,6 +155,15 @@ import { UserRole } from '../../features/admin/models/admin.models';
         gap: 12px;
         color: var(--ink-0);
         border: 1px solid var(--line);
+        justify-content: space-between;
+      }
+
+      .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+        flex: 1;
       }
 
       .menu-btn {
@@ -117,28 +172,37 @@ import { UserRole } from '../../features/admin/models/admin.models';
         background: var(--surface);
       }
 
+      .mobile-only {
+        display: none;
+      }
+
       .brand {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        padding: 8px 14px;
+        gap: 9px;
+        padding: 7px 12px;
+        margin-right: 8px;
         border-radius: 999px;
         text-decoration: none;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 700;
         background: linear-gradient(
           135deg,
-          rgba(208, 90, 45, 0.16),
-          rgba(15, 138, 119, 0.18)
+          rgba(30, 110, 231, 0.15),
+          rgba(18, 164, 166, 0.16)
         );
+        border: 1px solid rgba(34, 86, 155, 0.16);
       }
 
-      .brand-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-        background: var(--brand);
-        box-shadow: 0 0 0 5px rgba(208, 90, 45, 0.25);
+      .brand-logo {
+        width: auto;
+        height: 28px;
+        object-fit: contain;
+        border-radius: 8px;
+      }
+
+      .brand-name {
+        white-space: nowrap;
       }
 
       .top-nav {
@@ -147,6 +211,8 @@ import { UserRole } from '../../features/admin/models/admin.models';
         flex: 1;
         overflow-x: auto;
         scrollbar-width: none;
+        padding-left: 12px;
+        border-left: 1px solid rgba(72, 109, 151, 0.2);
       }
 
       .top-nav::-webkit-scrollbar {
@@ -170,19 +236,57 @@ import { UserRole } from '../../features/admin/models/admin.models';
         transform: translateY(-1px);
       }
 
-      .user-menu {
+      .toolbar-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 10px;
+        flex-shrink: 0;
+      }
+
+      .admin-chip {
+        height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(18, 164, 166, 0.4);
+        color: #0d7f80;
+        background: rgba(18, 164, 166, 0.1);
+        font-weight: 700;
+        padding: 0 14px;
+      }
+
+      .cart-chip {
+        height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(30, 110, 231, 0.33);
+        color: var(--brand-strong);
+        background: rgba(30, 110, 231, 0.08);
+        font-weight: 700;
+        padding: 0 12px;
         display: inline-flex;
         align-items: center;
         gap: 6px;
       }
 
-      .user-email {
-        max-width: 190px;
+      .profile-chip {
+        height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.75);
+        padding: 0 10px 0 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--ink-0);
+      }
+
+      .profile-name {
+        max-width: 180px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        color: var(--ink-2);
-        font-size: 0.85rem;
+        color: var(--ink-1);
+        font-size: 0.9rem;
+        font-weight: 600;
       }
 
       .sidenav-container {
@@ -193,7 +297,7 @@ import { UserRole } from '../../features/admin/models/admin.models';
       .sidenav {
         width: 280px;
         padding: 10px 6px;
-        background: #fff9ef;
+        background: #f7fbff;
         border-right: 1px solid var(--line);
       }
 
@@ -206,14 +310,41 @@ import { UserRole } from '../../features/admin/models/admin.models';
           display: none;
         }
 
-        .user-email {
+        .brand-name,
+        .profile-name {
           display: none;
+        }
+
+        .mobile-only {
+          display: inline-flex;
+        }
+
+        .profile-chip {
+          min-width: 42px;
+          width: 42px;
+          padding: 0;
+          justify-content: center;
+        }
+
+        .admin-chip {
+          display: none;
+        }
+
+        .cart-label {
+          display: none;
+        }
+
+        .cart-chip {
+          min-width: 42px;
+          width: 42px;
+          padding: 0;
+          justify-content: center;
         }
       }
     `,
   ],
 })
-export class LayoutComponent implements OnInit {
+export class LayoutComponent {
   currentUser$: Observable<User | null>;
   readonly navLinks = [
     { route: '/', label: 'Accueil', icon: 'home' },
@@ -232,15 +363,24 @@ export class LayoutComponent implements OnInit {
     this.currentUser$ = this.authService.currentUser$;
   }
 
-  ngOnInit(): void {
-    if (!this.authService.isAuthenticated()) {
-      this.router.navigate(['/auth/signin']);
-    }
-  }
-
   isAdmin(user: User | null): boolean {
     if (!user) return false;
     return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+  }
+
+  getUserLabel(user: User): string {
+    const local = user.email?.split('@')[0]?.trim();
+    if (local && local.length > 0) {
+      return local;
+    }
+    return 'Mon profil';
+  }
+
+  getAdminRoute(user: User): string {
+    if (user.role === UserRole.SUPER_ADMIN) {
+      return '/super-admin/dashboard';
+    }
+    return '/admin/dashboard';
   }
 
   logout(): void {

@@ -3,7 +3,7 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(160deg, #f8efe0, #eff8f5);
+  background: linear-gradient(160deg, #eef4fb, #effbfa);
   position: relative;
   overflow: hidden;
   padding: 20px;
@@ -20,13 +20,13 @@
   &.one {
     top: -100px;
     left: -90px;
-    background: radial-gradient(circle, rgba(208, 90, 45, 0.24), rgba(208, 90, 45, 0));
+    background: radial-gradient(circle, rgba(30, 110, 231, 0.24), rgba(30, 110, 231, 0));
   }
 
   &.two {
     right: -130px;
     bottom: -130px;
-    background: radial-gradient(circle, rgba(15, 138, 119, 0.22), rgba(15, 138, 119, 0));
+    background: radial-gradient(circle, rgba(18, 164, 166, 0.22), rgba(18, 164, 166, 0));
   }
 }
 
@@ -52,8 +52,8 @@
   margin: 0 auto 14px;
   border-radius: 999px;
   padding: 3px;
-  background: linear-gradient(145deg, #d05a2d 0%, #f0a66f 100%);
-  box-shadow: 0 14px 28px rgba(208, 90, 45, 0.24);
+  background: linear-gradient(145deg, #1e6ee7 0%, #53b4f4 100%);
+  box-shadow: 0 14px 28px rgba(30, 110, 231, 0.24);
 }
 
 .brand-video {
@@ -62,6 +62,7 @@
   object-fit: cover;
   border-radius: 999px;
   display: block;
+  animation: brandSpin 14s linear infinite;
 }
 
 .brand-name {
@@ -144,14 +145,14 @@ mat-icon[matPrefix] {
   font-weight: 600;
   border-radius: 12px;
   margin-top: 10px;
-  background: linear-gradient(135deg, #d05a2d 0%, #af4119 100%) !important;
-  box-shadow: 0 10px 25px rgba(208, 90, 45, 0.33);
+  background: linear-gradient(135deg, #1e6ee7 0%, #1256b9 100%) !important;
+  box-shadow: 0 10px 25px rgba(30, 110, 231, 0.33);
   transition: all 0.3s ease;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 
   &:hover:not(:disabled) {
-    box-shadow: 0 14px 30px rgba(208, 90, 45, 0.45);
+    box-shadow: 0 14px 30px rgba(30, 110, 231, 0.45);
     transform: translateY(-2px);
   }
 
@@ -268,5 +269,14 @@ mat-icon[matPrefix] {
   .signin-button,
   .signup-button {
     height: 44px;
+  }
+}
+
+@keyframes brandSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

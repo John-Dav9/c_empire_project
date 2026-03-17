@@ -12,6 +12,16 @@ import { EmployeesManagementComponent } from './employees/employees-management.c
 import { ClientsManagementComponent } from './clients/clients-management.component';
 import { OrdersTrackingComponent } from './orders/orders-tracking.component';
 import { SuperAdminGuard } from './guards/super-admin.guard';
+import { ShopPromotionsComponent } from './shop/shop-promotions.component';
+import { SeasonalCampaignsComponent } from './marketing/seasonal-campaigns.component';
+import { NewsManagementComponent } from './marketing/news-management.component';
+import { FooterSettingsComponent } from './marketing/footer-settings.component';
+import { ContentPagesManagementComponent } from './marketing/content-pages-management.component';
+import { ExpressDeliveriesManagementComponent } from './express/express-deliveries-management.component';
+import { ExpressCouriersManagementComponent } from './express/express-couriers-management.component';
+import { ExpressImportExportManagementComponent } from './express/express-import-export-management.component';
+import { EventsManagementComponent } from './events/events-management.component';
+import { EventsBookingsManagementComponent } from './events/events-bookings-management.component';
 
 export const superAdminRoutes: Routes = [
   {
@@ -25,6 +35,7 @@ export const superAdminRoutes: Routes = [
       
       // C'Shop
       { path: 'shop/products', component: ShopProductsComponent },
+      { path: 'shop/promotions', component: ShopPromotionsComponent },
       
       // C'Grill
       { path: 'grill/products', component: GrillProductsComponent },
@@ -35,11 +46,24 @@ export const superAdminRoutes: Routes = [
       
       // C'Todo
       { path: 'todo/services', component: TodoServicesComponent },
+
+      // C'Events
+      { path: 'events/catalog', component: EventsManagementComponent },
+      { path: 'events/bookings', component: EventsBookingsManagementComponent },
+
+      // C'Express
+      { path: 'express/deliveries', component: ExpressDeliveriesManagementComponent },
+      { path: 'express/couriers', component: ExpressCouriersManagementComponent },
+      { path: 'express/import-export', component: ExpressImportExportManagementComponent },
       
       // Employés et Clients
       { path: 'employees', component: EmployeesManagementComponent },
       { path: 'clients', component: ClientsManagementComponent },
       { path: 'orders', component: OrdersTrackingComponent },
+      { path: 'marketing/campaigns', component: SeasonalCampaignsComponent },
+      { path: 'marketing/news', component: NewsManagementComponent },
+      { path: 'marketing/footer', component: FooterSettingsComponent },
+      { path: 'marketing/pages', component: ContentPagesManagementComponent },
       
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

@@ -2,16 +2,27 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, forkJoin, of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { buildApiUrl } from '../../../core/config/api.config';
+
+type OrderType = 'shop' | 'grill' | 'clean' | 'todo' | 'event';
+type FilterStatus = '' | 'pending' | 'confirmed' | 'processing' | 'completed' | 'cancelled';
+
+interface StatusOption {
+  value: string;
+  label: string;
+}
 
 interface Order {
   id: string;
-  type: 'shop' | 'grill' | 'clean' | 'todo' | 'express' | 'event';
+  type: OrderType;
   customerName: string;
   customerEmail: string;
   status: string;
+  statusGroup: Exclude<FilterStatus, ''> | 'other';
+  previousStatus: string;
+  isUpdating?: boolean;
   totalAmount: number;
   createdAt: string;
   items?: any[];
@@ -32,7 +43,6 @@ interface Order {
             <option value="grill">🍔 C'Grill</option>
             <option value="clean">🧹 C'Clean</option>
             <option value="todo">📋 C'Todo</option>
-            <option value="express">📦 C'Express</option>
             <option value="event">🎉 C'Events</option>
           </select>
           <select [(ngModel)]="filterStatus" (change)="applyFilters()" class="form-control">
@@ -84,6 +94,11 @@ interface Order {
       </div>
 
       <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+      <div *ngIf="notice" class="alert alert-success">{{ notice }}</div>
+      <div class="alert alert-info" *ngIf="!loading">
+        Vue globale active pour C'Shop, C'Grill, C'Clean, C'Todo et C'Events.
+        C'Express reste pilote depuis ses ecrans logistiques dedies.
+      </div>
 
       <!-- Orders Table -->
       <div *ngIf="!loading" class="table-container">
@@ -116,20 +131,22 @@ interface Order {
               <td>{{ order.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
               <td class="amount">{{ order.totalAmount | number:'1.0-0' }} FCFA</td>
               <td>
-                <select [(ngModel)]="order.status" 
-                        (change)="updateOrderStatus(order)" 
+                <select [(ngModel)]="order.status"
+                        (change)="updateOrderStatus(order)"
+                        [disabled]="!!order.isUpdating"
                         class="status-select"
-                        [class]="'status-' + order.status">
-                  <option value="pending">⏳ En attente</option>
-                  <option value="confirmed">✓ Confirmée</option>
-                  <option value="processing">⚙️ En cours</option>
-                  <option value="completed">✅ Complétée</option>
-                  <option value="cancelled">❌ Annulée</option>
+                        [class]="'status-' + order.statusGroup">
+                  <option
+                    *ngFor="let option of getStatusOptions(order.type)"
+                    [value]="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
                 </select>
               </td>
               <td class="actions">
                 <button class="btn-icon" (click)="viewOrderDetails(order)" title="Voir détails">👁️</button>
-                <button class="btn-icon" (click)="printInvoice(order)" title="Imprimer">🖨️</button>
+                <button class="btn-icon" (click)="printInvoice(order)" [disabled]="order.type !== 'shop'" title="Imprimer facture C'Shop">🖨️</button>
               </td>
             </tr>
           </tbody>
@@ -300,6 +317,16 @@ interface Order {
         background: #f8d7da;
         color: #721c24;
       }
+
+      &.alert-success {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      &.alert-info {
+        background: #edf5ff;
+        color: #245b93;
+      }
     }
 
     .table-container {
@@ -372,7 +399,6 @@ interface Order {
       &.type-grill { background: #fff3bf; color: #e67700; }
       &.type-clean { background: #d3f9d8; color: #2f9e44; }
       &.type-todo { background: #ffe3e3; color: #c92a2a; }
-      &.type-express { background: #e5dbff; color: #7950f2; }
       &.type-event { background: #ffe8cc; color: #d9480f; }
     }
 
@@ -419,6 +445,12 @@ interface Order {
 
       &:hover {
         transform: scale(1.2);
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
       }
     }
 
@@ -556,13 +588,61 @@ interface Order {
 })
 export class OrdersTrackingComponent implements OnInit {
   private http = inject(HttpClient);
+  private readonly statusOptions: Record<OrderType, StatusOption[]> = {
+    shop: [
+      { value: 'pending', label: '⏳ En attente' },
+      { value: 'confirmed', label: '✓ Confirmée' },
+      { value: 'paid', label: '💳 Payée' },
+      { value: 'preparing', label: '👨‍🍳 Préparation' },
+      { value: 'shipped', label: '🚚 Expédiée' },
+      { value: 'delivered', label: '✅ Livrée' },
+      { value: 'cancelled', label: '❌ Annulée' },
+      { value: 'refunded', label: '↩️ Remboursée' },
+    ],
+    grill: [
+      { value: 'PENDING', label: '⏳ En attente' },
+      { value: 'PAID', label: '💳 Payée' },
+      { value: 'CONFIRMED', label: '✓ Confirmée' },
+      { value: 'PREPARING', label: '👨‍🍳 Préparation' },
+      { value: 'READY', label: '📦 Prête' },
+      { value: 'OUT_FOR_DELIVERY', label: '🚚 En livraison' },
+      { value: 'DELIVERED', label: '✅ Livrée' },
+      { value: 'CANCELLED', label: '❌ Annulée' },
+      { value: 'REFUSED', label: '⛔ Refusée' },
+    ],
+    clean: [
+      { value: 'DRAFT', label: '📝 Brouillon' },
+      { value: 'PAYMENT_PENDING', label: '💳 Paiement en attente' },
+      { value: 'CONFIRMED', label: '✓ Confirmée' },
+      { value: 'ASSIGNED', label: '🧑‍🔧 Assignée' },
+      { value: 'IN_PROGRESS', label: '⚙️ En cours' },
+      { value: 'DONE', label: '✅ Terminée' },
+      { value: 'CANCELLED', label: '❌ Annulée' },
+      { value: 'FAILED', label: '⚠️ Échec' },
+    ],
+    todo: [
+      { value: 'pending', label: '⏳ En attente' },
+      { value: 'confirmed', label: '✓ Confirmée' },
+      { value: 'in_progress', label: '⚙️ En cours' },
+      { value: 'completed', label: '✅ Complétée' },
+      { value: 'cancelled', label: '❌ Annulée' },
+    ],
+    event: [
+      { value: 'PENDING', label: '⏳ En attente' },
+      { value: 'VALIDATED', label: '✓ Validée' },
+      { value: 'PAID', label: '💳 Payée' },
+      { value: 'REFUSED', label: '❌ Refusée' },
+      { value: 'CANCELLED', label: '🚫 Annulée' },
+    ],
+  };
 
   allOrders: Order[] = [];
   filteredOrders: Order[] = [];
   loading = false;
   error: string | null = null;
+  notice: string | null = null;
   filterType = '';
-  filterStatus = '';
+  filterStatus: FilterStatus = '';
   selectedOrder: Order | null = null;
 
   ngOnInit() {
@@ -572,19 +652,22 @@ export class OrdersTrackingComponent implements OnInit {
   loadAllOrders() {
     this.loading = true;
     this.error = null;
+    this.notice = null;
 
     forkJoin({
-      shopOrders: this.http.get<any[]>(buildApiUrl('/cshop/orders/me')).pipe(catchError(() => of([]))),
+      shopOrders: this.http.get<any[]>(buildApiUrl('/cshop/orders')).pipe(catchError(() => of([]))),
       grillOrders: this.http.get<any[]>(buildApiUrl('/grill/orders/admin/all')).pipe(catchError(() => of([]))),
       cleanBookings: this.http.get<any[]>(buildApiUrl('/cclean/bookings')).pipe(catchError(() => of([]))),
-      todoOrders: this.http.get<any[]>(buildApiUrl('/c-todo/orders')).pipe(catchError(() => of([])))
+      todoOrders: this.http.get<any[]>(buildApiUrl('/c-todo/orders')).pipe(catchError(() => of([]))),
+      eventBookings: this.http.get<any[]>(buildApiUrl('/c-event/bookings')).pipe(catchError(() => of([])))
     }).subscribe({
       next: (data) => {
         this.allOrders = [
           ...this.mapOrders(data.shopOrders, 'shop'),
           ...this.mapOrders(data.grillOrders, 'grill'),
           ...this.mapOrders(data.cleanBookings, 'clean'),
-          ...this.mapOrders(data.todoOrders, 'todo')
+          ...this.mapOrders(data.todoOrders, 'todo'),
+          ...this.mapOrders(data.eventBookings, 'event')
         ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         
         this.filteredOrders = this.allOrders;
@@ -597,7 +680,7 @@ export class OrdersTrackingComponent implements OnInit {
     });
   }
 
-  mapOrders(orders: any[], type: Order['type']): Order[] {
+  mapOrders(orders: any[], type: OrderType): Order[] {
     if (!Array.isArray(orders)) return [];
     
     return orders.map(order => ({
@@ -607,7 +690,9 @@ export class OrdersTrackingComponent implements OnInit {
         ? `${order.user.firstname} ${order.user.lastname}` 
         : order.customerName || 'Client anonyme',
       customerEmail: order.user?.email || order.customerEmail || 'N/A',
-      status: order.status || 'pending',
+      status: this.normalizeIncomingStatus(type, order.status),
+      statusGroup: this.toStatusGroup(order.status),
+      previousStatus: this.normalizeIncomingStatus(type, order.status),
       totalAmount: order.totalAmount || order.total || order.price || 0,
       createdAt: order.createdAt || new Date().toISOString(),
       items: order.items || order.orderItems || []
@@ -617,18 +702,41 @@ export class OrdersTrackingComponent implements OnInit {
   applyFilters() {
     this.filteredOrders = this.allOrders.filter(order => {
       const typeMatch = !this.filterType || order.type === this.filterType;
-      const statusMatch = !this.filterStatus || order.status === this.filterStatus;
+      const statusMatch = !this.filterStatus || order.statusGroup === this.filterStatus;
       return typeMatch && statusMatch;
     });
   }
 
-  getOrdersByStatus(status: string): Order[] {
-    return this.allOrders.filter(o => o.status === status);
+  getOrdersByStatus(status: Exclude<FilterStatus, ''>): Order[] {
+    return this.allOrders.filter(o => o.statusGroup === status);
   }
 
   updateOrderStatus(order: Order) {
-    console.log(`Updating order ${order.id} status to ${order.status}`);
-    // Implémentez l'appel API selon le type de commande
+    const previousStatus = order.previousStatus;
+    order.isUpdating = true;
+    this.notice = null;
+    this.error = null;
+
+    this.getUpdateRequest(order).subscribe({
+      next: () => {
+        order.previousStatus = order.status;
+        order.statusGroup = this.toStatusGroup(order.status);
+        this.notice = `Statut de la commande ${order.id.slice(0, 8)} mis à jour.`;
+        this.applyFilters();
+      },
+      error: (err: unknown) => {
+        const errorWithPayload = err as { error?: { message?: string }; message?: string };
+        order.status = previousStatus;
+        order.statusGroup = this.toStatusGroup(previousStatus);
+        this.error =
+          errorWithPayload?.error?.message ??
+          errorWithPayload?.message ??
+          'Impossible de mettre à jour le statut de la commande.';
+      },
+      complete: () => {
+        order.isUpdating = false;
+      },
+    });
   }
 
   viewOrderDetails(order: Order) {
@@ -636,42 +744,139 @@ export class OrdersTrackingComponent implements OnInit {
   }
 
   printInvoice(order: Order) {
-    console.log('Printing invoice for order:', order.id);
-    alert('Fonctionnalité d\'impression en cours de développement');
+    if (order.type !== 'shop') {
+      this.error = "La facture PDF est disponible uniquement pour les commandes C'Shop.";
+      return;
+    }
+    window.open(buildApiUrl(`/cshop/orders/${order.id}/invoice`), '_blank', 'noopener');
   }
 
-  getTypeIcon(type: string): string {
+  getStatusOptions(type: OrderType): StatusOption[] {
+    return this.statusOptions[type] ?? [];
+  }
+
+  private getUpdateRequest(order: Order): Observable<void> {
+    switch (order.type) {
+      case 'shop':
+        return this.http
+          .patch(buildApiUrl(`/cshop/orders/${order.id}/status`), {
+            status: order.status,
+          })
+          .pipe(map(() => void 0));
+      case 'grill':
+        return this.http
+          .patch(buildApiUrl(`/grill/orders/admin/${order.id}/status`), {
+            status: order.status,
+          })
+          .pipe(map(() => void 0));
+      case 'clean':
+        return this.http
+          .patch(buildApiUrl(`/cclean/bookings/${order.id}/status`), {
+            status: order.status,
+          })
+          .pipe(map(() => void 0));
+      case 'todo':
+        return this.http
+          .patch(buildApiUrl(`/c-todo/orders/${order.id}/status`), {
+            status: order.status,
+          })
+          .pipe(map(() => void 0));
+      case 'event':
+        if (order.status === 'VALIDATED') {
+          return this.http
+            .patch(buildApiUrl(`/c-event/bookings/${order.id}/validate`), {})
+            .pipe(map(() => void 0));
+        }
+        if (order.status === 'REFUSED') {
+          return this.http
+            .patch(buildApiUrl(`/c-event/bookings/${order.id}/refuse`), {})
+            .pipe(map(() => void 0));
+        }
+        return throwError(() => new Error("Seuls les statuts VALIDATED et REFUSED sont modifiables pour C'Events."));
+      default:
+        return of(void 0);
+    }
+  }
+
+  private normalizeIncomingStatus(type: OrderType, status: unknown): string {
+    const options = this.getStatusOptions(type);
+    if (typeof status === 'string') {
+      const found = options.find((opt) => opt.value === status);
+      if (found) return found.value;
+    }
+    return options[0]?.value ?? String(status ?? 'pending');
+  }
+
+  private toStatusGroup(status: unknown): Order['statusGroup'] {
+    const normalized = String(status ?? '').toLowerCase();
+    if (['pending', 'draft', 'payment_pending'].includes(normalized)) {
+      return 'pending';
+    }
+    if (['confirmed', 'paid', 'validated'].includes(normalized)) {
+      return 'confirmed';
+    }
+    if (
+      ['processing', 'preparing', 'in_progress', 'assigned', 'ready', 'out_for_delivery', 'shipped'].includes(
+        normalized,
+      )
+    ) {
+      return 'processing';
+    }
+    if (['completed', 'done', 'delivered'].includes(normalized)) {
+      return 'completed';
+    }
+    if (['cancelled', 'failed', 'refused', 'refunded'].includes(normalized)) {
+      return 'cancelled';
+    }
+    return 'other';
+  }
+
+  getTypeIcon(type: OrderType): string {
     const icons: any = {
       shop: '🛍️',
       grill: '🍔',
       clean: '🧹',
       todo: '📋',
-      express: '📦',
       event: '🎉'
     };
     return icons[type] || '📦';
   }
 
-  getTypeLabel(type: string): string {
+  getTypeLabel(type: OrderType): string {
     const labels: any = {
       shop: 'C\'Shop',
       grill: 'C\'Grill',
       clean: 'C\'Clean',
       todo: 'C\'Todo',
-      express: 'C\'Express',
       event: 'C\'Events'
     };
     return labels[type] || type;
   }
 
   getStatusLabel(status: string): string {
-    const labels: any = {
+    const lower = status.toLowerCase();
+    const labels: Record<string, string> = {
       pending: '⏳ En attente',
+      draft: '📝 Brouillon',
+      payment_pending: '💳 Paiement en attente',
       confirmed: '✓ Confirmée',
+      validated: '✓ Validée',
+      paid: '💳 Payée',
+      preparing: '👨‍🍳 Préparation',
+      in_progress: '⚙️ En cours',
       processing: '⚙️ En cours',
+      assigned: '🧑‍🔧 Assignée',
+      ready: '📦 Prête',
+      shipped: '🚚 Expédiée',
+      out_for_delivery: '🚚 En livraison',
+      delivered: '✅ Livrée',
+      done: '✅ Terminée',
       completed: '✅ Complétée',
-      cancelled: '❌ Annulée'
+      cancelled: '❌ Annulée',
+      failed: '⚠️ Échec',
+      refused: '⛔ Refusée',
+      refunded: '↩️ Remboursée',
     };
-    return labels[status] || status;
+    return labels[lower] || status;
   }
 }

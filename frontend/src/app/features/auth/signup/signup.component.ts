@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -26,9 +26,7 @@ import { AuthService } from '../../../core/services/auth.service';
   templateUrl: './signup.component.html',
   styleUrl: './signup.component.scss'
 })
-export class SignupComponent implements AfterViewInit {
-  @ViewChild('brandVideo') brandVideo?: ElementRef<HTMLVideoElement>;
-
+export class SignupComponent {
   form: FormGroup;
   loading = false;
   error: string | null = null;
@@ -40,41 +38,37 @@ export class SignupComponent implements AfterViewInit {
     private router: Router
   ) {
     this.form = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
+      firstName: [''],
+      lastName: [''],
+      phone: [''],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
     });
   }
 
-  ngAfterViewInit(): void {
-    const video = this.brandVideo?.nativeElement;
-    if (!video) return;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.volume = 0;
-    video.setAttribute('muted', '');
-    video.onvolumechange = () => {
-      if (video.volume !== 0 || !video.muted) {
-        video.volume = 0;
-        video.muted = true;
-      }
-    };
-  }
-
   onSubmit(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.error = 'Veuillez corriger le formulaire avant de continuer.';
+      return;
+    }
 
     this.loading = true;
     this.error = null;
 
     this.authService.signup(this.form.value).subscribe({
       next: () => {
+        this.loading = false;
         this.router.navigate(['/']);
       },
       error: (err) => {
         this.loading = false;
-        this.error = err.error?.message || 'Erreur lors de l\'inscription';
+        const message = err?.error?.message;
+        if (Array.isArray(message)) {
+          this.error = message.join(' | ');
+          return;
+        }
+        this.error = message || 'Erreur lors de l\'inscription';
       }
     });
   }

@@ -2,15 +2,18 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { buildApiUrl } from '../../../core/config/api.config';
+import { buildApiUrl, buildMediaUrl } from '../../../core/config/api.config';
 
 interface Product {
   id: string;
   name: string;
+  sku?: string;
   description: string;
   price: number;
   category: string;
   imageUrl?: string;
+  images?: string[];
+  technicalSheetPdf?: string | null;
   stock: number;
   isAvailable: boolean;
   createdAt: string;
@@ -47,9 +50,10 @@ interface ProductListResponse {
       <!-- Products Grid -->
       <div *ngIf="!loading" class="products-grid">
         <div *ngFor="let product of products" class="product-card">
-          <div class="product-image" [style.background-image]="'url(' + (product.imageUrl || '/assets/placeholder.png') + ')'"></div>
+          <div class="product-image" [style.background-image]="'url(' + (resolveMediaUrl(product.imageUrl) || '/assets/placeholder.png') + ')'"></div>
           <div class="product-info">
             <h3>{{ product.name }}</h3>
+            <p class="product-description" *ngIf="product.sku">Code: {{ product.sku }}</p>
             <p class="product-description">{{ product.description }}</p>
             <div class="product-meta">
               <span class="badge badge-category">{{ product.category }}</span>
@@ -61,6 +65,15 @@ interface ProductListResponse {
               <span class="price">{{ product.price }} FCFA</span>
               <span class="stock">Stock: {{ product.stock }}</span>
             </div>
+            <a
+              *ngIf="product.technicalSheetPdf"
+              class="tech-sheet-link"
+              [href]="resolveMediaUrl(product.technicalSheetPdf)"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              📄 Télécharger la fiche technique
+            </a>
             <div class="product-actions">
               <button class="btn-icon" (click)="editProduct(product)" title="Modifier">✏️</button>
               <button class="btn-icon" (click)="deleteProduct(product.id)" title="Supprimer">🗑️</button>
@@ -90,6 +103,10 @@ interface ProductListResponse {
               <input [(ngModel)]="formData.name" name="name" required class="form-control">
             </div>
             <div class="form-group">
+              <label>Code produit (SKU)</label>
+              <input [(ngModel)]="formData.sku" name="sku" class="form-control" placeholder="ex: CSH-000123">
+            </div>
+            <div class="form-group">
               <label>Description</label>
               <textarea [(ngModel)]="formData.description" name="description" class="form-control" rows="3"></textarea>
             </div>
@@ -107,17 +124,41 @@ interface ProductListResponse {
               <label>Catégorie *</label>
               <select [(ngModel)]="formData.category" name="category" required class="form-control">
                 <option value="">Sélectionner...</option>
-                <option value="electronics">Électronique</option>
-                <option value="fashion">Mode</option>
-                <option value="home">Maison</option>
-                <option value="beauty">Beauté</option>
-                <option value="food">Alimentation</option>
-                <option value="other">Autre</option>
+                <option *ngFor="let category of categoryOptions" [value]="category">{{ category }}</option>
               </select>
             </div>
             <div class="form-group">
-              <label>URL de l'image</label>
-              <input [(ngModel)]="formData.imageUrl" name="imageUrl" class="form-control">
+              <label>Images du produit</label>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                (change)="onProductImagesSelected($event)"
+                class="form-control">
+              <small class="field-hint" *ngIf="uploadingImages">Upload des images en cours...</small>
+              <div class="uploaded-images" *ngIf="formData.images.length > 0">
+                <div class="uploaded-image-row" *ngFor="let path of formData.images; let i = index">
+                  <input [ngModel]="path" [name]="'uploaded-image-' + i" readonly class="form-control">
+                  <button type="button" class="btn btn-secondary btn-remove-image" (click)="removeImage(i)">Retirer</button>
+                </div>
+              </div>
+            </div>
+            <div class="form-group" *ngIf="supportsTechnicalSheet(formData.category)">
+              <label>Fiche technique (PDF, optionnel)</label>
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                (change)="onTechnicalSheetSelected($event)"
+                class="form-control">
+              <small class="field-hint" *ngIf="uploadingTechSheet">Upload du PDF en cours...</small>
+              <div class="uploaded-images" *ngIf="formData.technicalSheetPdf">
+                <div class="uploaded-image-row">
+                  <input [ngModel]="formData.technicalSheetPdf" name="technical-sheet" readonly class="form-control">
+                  <button type="button" class="btn btn-secondary btn-remove-image" (click)="clearTechnicalSheet()">
+                    Retirer
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="form-group">
               <label class="checkbox-label">
@@ -127,7 +168,7 @@ interface ProductListResponse {
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" (click)="showAddModal = false">Annuler</button>
-              <button type="submit" class="btn btn-primary" [disabled]="saving">
+              <button type="submit" class="btn btn-primary" [disabled]="saving || uploadingImages || uploadingTechSheet">
                 {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
               </button>
             </div>
@@ -231,6 +272,19 @@ interface ProductListResponse {
           display: flex;
           gap: 0.5rem;
           justify-content: flex-end;
+        }
+
+        .tech-sheet-link {
+          display: inline-flex;
+          margin-bottom: 0.9rem;
+          font-size: 0.86rem;
+          font-weight: 600;
+          color: #305ea8;
+          text-decoration: none;
+
+          &:hover {
+            text-decoration: underline;
+          }
         }
       }
     }
@@ -415,6 +469,33 @@ interface ProductListResponse {
               height: 20px;
             }
           }
+
+          .field-hint {
+            display: block;
+            margin-top: 0.45rem;
+            color: #666;
+            font-size: 0.82rem;
+            font-weight: 600;
+          }
+
+          .uploaded-images {
+            margin-top: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+          }
+
+          .uploaded-image-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.5rem;
+            align-items: center;
+          }
+
+          .btn-remove-image {
+            padding: 0.6rem 0.8rem;
+            font-size: 0.85rem;
+          }
         }
 
         .form-row {
@@ -442,20 +523,36 @@ interface ProductListResponse {
 export class ShopProductsComponent implements OnInit {
   private http = inject(HttpClient);
   private apiUrl = buildApiUrl('/cshop/products');
+  readonly categoryOptions = [
+    'Electronique',
+    'Electro-menager',
+    'Maison',
+    'Mode',
+    'Sante',
+    'Bebe',
+    'Bureau',
+    'Auto',
+    'Sport',
+    'Cuisine',
+  ];
 
   products: Product[] = [];
   loading = false;
   error: string | null = null;
   showAddModal = false;
   saving = false;
+  uploadingImages = false;
+  uploadingTechSheet = false;
   editingProduct: Product | null = null;
 
   formData = {
     name: '',
+    sku: '',
     description: '',
     price: 0,
     category: '',
-    imageUrl: '',
+    images: [] as string[],
+    technicalSheetPdf: '',
     stock: 0,
     isAvailable: true
   };
@@ -467,23 +564,28 @@ export class ShopProductsComponent implements OnInit {
   loadProducts() {
     this.loading = true;
     this.error = null;
-    this.http.get<Product[] | ProductListResponse>(this.apiUrl).subscribe({
+    this.http
+      .get<Product[] | ProductListResponse>(`${this.apiUrl}?page=1&limit=500`)
+      .subscribe({
       next: (data) => {
-        const raw = Array.isArray(data) ? data : data.data;
+        const raw = Array.isArray(data) ? data : data.data ?? [];
         this.products = raw.map((product: any) => ({
           id: product.id,
           name: product.name,
+          sku: product.sku ?? '',
           description: product.description || '',
           price: Number(product.finalPrice ?? product.price ?? 0),
-          category: product.category ?? product.categories?.[0] ?? '',
+          category: this.toCategoryLabel(product.category ?? product.categories?.[0] ?? ''),
           imageUrl: product.imageUrl ?? product.image ?? product.images?.[0],
+          images: Array.isArray(product.images) ? product.images : [],
+          technicalSheetPdf: product.technicalSheetPdf ?? null,
           stock: Number(product.stock ?? 0),
           isAvailable: Boolean(product.isAvailable ?? product.isActive ?? true),
           createdAt: product.createdAt,
         }));
         this.loading = false;
       },
-      error: (err) => {
+      error: () => {
         this.error = 'Erreur lors du chargement des produits';
         this.loading = false;
       }
@@ -494,10 +596,12 @@ export class ShopProductsComponent implements OnInit {
     this.editingProduct = product;
     this.formData = {
       name: product.name,
+      sku: product.sku ?? '',
       description: product.description,
       price: product.price,
-      category: product.category,
-      imageUrl: product.imageUrl || '',
+      category: this.toCategoryLabel(product.category),
+      images: product.images?.length ? [...product.images] : product.imageUrl ? [product.imageUrl] : [],
+      technicalSheetPdf: product.technicalSheetPdf ?? '',
       stock: product.stock,
       isAvailable: product.isAvailable
     };
@@ -508,12 +612,14 @@ export class ShopProductsComponent implements OnInit {
     this.saving = true;
     const payload = {
       name: this.formData.name,
+      sku: this.formData.sku.trim() || undefined,
       description: this.formData.description,
       price: Number(this.formData.price),
       stock: Number(this.formData.stock),
       isActive: this.formData.isAvailable,
-      categories: this.formData.category ? [this.formData.category] : [],
-      images: this.formData.imageUrl ? [this.formData.imageUrl] : [],
+      categories: this.formData.category ? [this.toCategoryLabel(this.formData.category)] : [],
+      images: this.formData.images,
+      technicalSheetPdf: this.formData.technicalSheetPdf || undefined,
     };
 
     const request = this.editingProduct
@@ -555,13 +661,108 @@ export class ShopProductsComponent implements OnInit {
   resetForm() {
     this.formData = {
       name: '',
+      sku: '',
       description: '',
       price: 0,
       category: '',
-      imageUrl: '',
+      images: [],
+      technicalSheetPdf: '',
       stock: 0,
       isAvailable: true
     };
     this.editingProduct = null;
+  }
+
+  onProductImagesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const body = new FormData();
+    Array.from(input.files).forEach((file) => body.append('files', file));
+
+    this.uploadingImages = true;
+    this.http.post<{ files: string[] }>(`${this.apiUrl}/upload-images`, body).subscribe({
+      next: (response) => {
+        const uploaded = response.files ?? [];
+        this.formData.images = [...(this.formData.images ?? []), ...uploaded];
+        input.value = '';
+        this.uploadingImages = false;
+      },
+      error: () => {
+        this.error = "Erreur lors de l'upload des images";
+        this.uploadingImages = false;
+      }
+    });
+  }
+
+  removeImage(index: number): void {
+    this.formData.images.splice(index, 1);
+  }
+
+  onTechnicalSheetSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const body = new FormData();
+    body.append('files', file);
+
+    this.uploadingTechSheet = true;
+    this.http
+      .post<{ file: string }>(`${this.apiUrl}/upload-technical-sheet`, body)
+      .subscribe({
+        next: (response) => {
+          this.formData.technicalSheetPdf = response.file || '';
+          input.value = '';
+          this.uploadingTechSheet = false;
+        },
+        error: () => {
+          this.error = "Erreur lors de l'upload du PDF";
+          this.uploadingTechSheet = false;
+        },
+      });
+  }
+
+  clearTechnicalSheet(): void {
+    this.formData.technicalSheetPdf = '';
+  }
+
+  supportsTechnicalSheet(category: string): boolean {
+    const normalized = this.toCategoryLabel(category).toLowerCase();
+    return normalized === 'electronique' || normalized === 'electro-menager';
+  }
+
+  resolveMediaUrl(path?: string | null): string {
+    return buildMediaUrl(path);
+  }
+
+  private toCategoryLabel(value: string): string {
+    const normalized = String(value || '').trim().toLowerCase();
+    switch (normalized) {
+      case 'electronics':
+      case 'electronique':
+        return 'Electronique';
+      case 'electromenager':
+      case 'electro-menager':
+      case 'electroménager':
+        return 'Electro-menager';
+      case 'fashion':
+        return 'Mode';
+      case 'home':
+        return 'Maison';
+      case 'health':
+      case 'sante':
+      case 'santé':
+        return 'Sante';
+      case 'baby':
+      case 'bebe':
+      case 'bébé':
+        return 'Bebe';
+      case 'office':
+      case 'bureau':
+        return 'Bureau';
+      default:
+        return String(value || '').trim();
+    }
   }
 }

@@ -1,34 +1,78 @@
 <div class="product-detail-container">
-  <button mat-icon-button [routerLink]="['/shop']" class="back-btn">
-    <mat-icon>arrow_back</mat-icon>
-  </button>
-
   <div *ngIf="loading" class="loading">
     <mat-spinner></mat-spinner>
   </div>
 
   <div *ngIf="product && !loading" class="product-detail">
-    <div class="product-image-section">
-      <div *ngIf="product.image; else noImage" class="product-image">
-        <img [src]="product.image" [alt]="product.name" />
+    <section class="detail-topbar">
+      <button mat-icon-button [routerLink]="['/shop']" class="back-btn" aria-label="Retour">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="crumbs">
+        <a routerLink="/">Accueil</a>
+        <span>›</span>
+        <a routerLink="/shop">Boutique</a>
+        <span>›</span>
+        <a routerLink="/shop">{{ product.category || 'Categorie' }}</a>
+        <span>›</span>
+        <strong>{{ product.name }}</strong>
       </div>
-      <ng-template #noImage>
-        <div class="product-image placeholder">
-          <mat-icon>shopping_cart</mat-icon>
+    </section>
+
+    <section class="visual-column">
+      <div class="gallery-frame" [class.has-thumbs]="product.images.length > 1">
+        <div class="thumbs-rail" *ngIf="product.images.length > 1">
+          <button
+            type="button"
+            class="thumb"
+            *ngFor="let img of product.images; let i = index"
+            [class.active]="i === currentImageIndex"
+            (click)="setImageByIndex(i)"
+          >
+            <img [src]="img" [alt]="product.name + ' miniature ' + (i + 1)" />
+          </button>
         </div>
-      </ng-template>
-    </div>
+        <div *ngIf="product.image; else noImage" class="product-image">
+          <img [src]="product.image" [alt]="product.name" (error)="onImageError()" />
+          <button type="button" class="nav-arrow prev" *ngIf="product.images.length > 1" (click)="prevImage()">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <button type="button" class="nav-arrow next" *ngIf="product.images.length > 1" (click)="nextImage()">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+        <ng-template #noImage>
+          <div class="product-image placeholder">
+            <mat-icon>shopping_cart</mat-icon>
+            <span>Image indisponible</span>
+          </div>
+        </ng-template>
+      </div>
+    </section>
 
-    <div class="product-info">
+    <section class="content-column">
       <mat-card class="app-shell-card detail-card">
-        <mat-card-header>
-          <h1>{{ product.name }}</h1>
-          <p class="category">{{ product.category || 'Produit' }}</p>
-        </mat-card-header>
-
         <mat-card-content>
-          <div class="price-section">
-            <span class="price">{{ product.price | currency:'XOF' }}</span>
+          <div class="header-line">
+            <h1>{{ product.name }}</h1>
+            <span class="category-pill">{{ product.category || 'Produit' }}</span>
+          </div>
+
+          <div class="rating-row">
+            <span class="rating-count">{{ product.reviewsCount }} avis</span>
+            <span class="stars">
+              <mat-icon *ngFor="let s of stars(product.avgRating)">
+                {{ s ? 'star' : 'star_border' }}
+              </mat-icon>
+            </span>
+            <span class="rating-value">{{ product.avgRating | number:'1.1-1' }}/5</span>
+          </div>
+
+          <div class="price-band">
+            <div class="price-wrap">
+              <span class="price">{{ unitPrice | currency:'XOF' }}</span>
+              <small *ngIf="customizationsDelta > 0">base + options</small>
+            </div>
             <span class="stock" [class.low]="product.stock < 5">
               <mat-icon *ngIf="product.stock > 0">check_circle</mat-icon>
               <mat-icon *ngIf="product.stock === 0">cancel</mat-icon>
@@ -36,38 +80,135 @@
             </span>
           </div>
 
+          <div class="benefits-row">
+            <span><mat-icon>local_shipping</mat-icon> Livraison standard</span>
+            <span><mat-icon>verified</mat-icon> Paiement securise</span>
+            <span><mat-icon>published_with_changes</mat-icon> Retour sous conditions</span>
+          </div>
+
           <div class="description">
             <h3>Description</h3>
             <p>{{ product.description }}</p>
           </div>
 
+          <form [formGroup]="form" class="purchase-form">
+            <div class="config-grid" *ngIf="product.colorOptions.length > 0 || product.customizationOptions.length > 0">
+              <div class="config-block" *ngIf="product.colorOptions.length > 0">
+                <h4>Couleur</h4>
+                <div class="color-showcase">
+                  <button
+                    type="button"
+                    class="color-card"
+                    *ngFor="let color of colorShowcase; let i = index"
+                    [class.active]="form.value.selectedColor === color.name"
+                    (click)="selectColor(color.name, i)"
+                  >
+                    <img *ngIf="color.image" [src]="color.image" [alt]="color.name" />
+                    <div class="empty" *ngIf="!color.image"></div>
+                    <span>{{ color.name }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="config-block" *ngIf="product.customizationOptions.length > 0">
+                <h4>Personnalisation</h4>
+                <div class="custom-list">
+                  <button
+                    type="button"
+                    class="custom-item"
+                    *ngFor="let option of product.customizationOptions"
+                    [class.active]="selectedCustomizations.has(option.id)"
+                    (click)="toggleCustomization(option.id)"
+                  >
+                    <span>{{ option.label }}</span>
+                    <strong *ngIf="option.priceDelta > 0">+ {{ option.priceDelta | currency:'XOF' }}</strong>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="qty-row">
+              <label for="qtySelect">Qte</label>
+              <select id="qtySelect" formControlName="quantity">
+                <option *ngFor="let q of quantityOptions" [ngValue]="q">{{ q }}</option>
+              </select>
+              <div class="line-total">
+                <span>Total</span>
+                <strong>{{ lineTotal | currency:'XOF' }}</strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="add-btn"
+              (click)="addToCart()"
+              [disabled]="product.stock === 0 || form.invalid"
+            >
+              Ajouter au panier
+            </button>
+          </form>
+
+          <div class="delivery-box">
+            <h4><mat-icon>local_shipping</mat-icon> Livraison gratuite pour cet article</h4>
+            <p>Expedie par voie terrestre: 2 a 5 jours ouvres.</p>
+          </div>
+
           <div *ngIf="product.specifications && product.specifications.length > 0" class="specifications">
-            <h3>Spécifications</h3>
+            <h3>Specifications</h3>
             <ul>
               <li *ngFor="let spec of product.specifications">{{ spec }}</li>
             </ul>
           </div>
-
-          <form [formGroup]="form" class="add-to-cart-form">
-            <mat-form-field appearance="outline" class="quantity-field">
-              <mat-label>Quantité</mat-label>
-              <input matInput type="number" formControlName="quantity" [min]="1" [max]="product.stock" />
-            </mat-form-field>
-
-            <button 
-              mat-raised-button 
-              color="primary" 
-              (click)="addToCart()"
-              [disabled]="product.stock === 0 || form.invalid"
-              class="add-btn"
-            >
-              <mat-icon>add_shopping_cart</mat-icon>
-              Ajouter au panier
-            </button>
-          </form>
         </mat-card-content>
       </mat-card>
-    </div>
+    </section>
+
+    <section class="reviews-shell">
+      <mat-card class="app-shell-card reviews-card">
+        <mat-card-content>
+          <section class="reviews-section">
+            <h3>Notes et avis</h3>
+            <form [formGroup]="reviewForm" class="review-form">
+              <div class="review-stars">
+                <button type="button" *ngFor="let s of [1,2,3,4,5]" (click)="selectRating(s)">
+                  <mat-icon>
+                    {{ s <= (reviewForm.value.rating || 0) ? 'star' : 'star_border' }}
+                  </mat-icon>
+                </button>
+              </div>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Commentaire (optionnel)</mat-label>
+                <textarea matInput rows="3" formControlName="comment"></textarea>
+              </mat-form-field>
+              <button
+                type="button"
+                mat-stroked-button
+                (click)="submitReview()"
+                [disabled]="reviewLoading"
+              >
+                {{ reviewLoading ? 'Envoi...' : 'Publier mon avis' }}
+              </button>
+              <p class="review-note" *ngIf="!isAuthenticated">
+                Connectez-vous pour publier une note.
+              </p>
+              <p class="review-ok" *ngIf="reviewSuccess">{{ reviewSuccess }}</p>
+              <p class="review-error" *ngIf="reviewError">{{ reviewError }}</p>
+            </form>
+
+            <div class="review-list" *ngIf="reviews.length > 0">
+              <article class="review-item" *ngFor="let review of reviews">
+                <span class="stars inline">
+                  <mat-icon *ngFor="let s of stars(review.rating)">
+                    {{ s ? 'star' : 'star_border' }}
+                  </mat-icon>
+                </span>
+                <p>{{ review.comment || 'Avis sans commentaire.' }}</p>
+              </article>
+            </div>
+          </section>
+        </mat-card-content>
+      </mat-card>
+    </section>
   </div>
 
   <div *ngIf="error" class="error-message">

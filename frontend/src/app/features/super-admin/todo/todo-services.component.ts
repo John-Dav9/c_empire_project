@@ -13,19 +13,12 @@ export class TodoServicesComponent {
     title: 'Services C\'Todo',
     icon: '⚙️',
     apiUrl: buildApiUrl('/admin/c-todo/services'),
-    displayFields: ['name', 'description', 'basePrice', 'category'],
+    displayFields: ['title', 'description', 'basePrice', 'isActive'],
     fields: [
-      { name: 'name', label: 'Nom du service', type: 'text', required: true },
-      { name: 'description', label: 'Description', type: 'textarea' },
+      { name: 'title', label: 'Nom du service', type: 'text', required: true },
+      { name: 'description', label: 'Description', type: 'textarea', required: true },
       { name: 'basePrice', label: 'Prix de base (FCFA)', type: 'number', required: true },
-      { name: 'category', label: 'Catégorie', type: 'select', required: true, options: [
-        { value: 'plumbing', label: 'Plomberie' },
-        { value: 'electrical', label: 'Électricité' },
-        { value: 'painting', label: 'Peinture' },
-        { value: 'carpentry', label: 'Menuiserie' },
-        { value: 'other', label: 'Autre' }
-      ]},
-      { name: 'imageUrl', label: 'URL Image', type: 'url' }
+      { name: 'isActive', label: 'Actif', type: 'checkbox' },
     ]
   };
 }

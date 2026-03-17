@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: cempire-backend
+    runtime: node
+    rootDir: backend
+    autoDeploy: true
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DB_HOST
+        fromDatabase:
+          name: cempire-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: cempire-postgres
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: cempire-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: cempire-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: cempire-postgres
+          property: password
+      - key: APP_BASE_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ADMIN_DEFAULT_PASSWORD
+        sync: false
+      - key: ALLOW_MOCK_PAYMENTS
+        value: "false"
+      - key: CEXPRESS_PROVIDER
+        value: disabled
+      - key: SMS_PROVIDER
+        value: disabled
+      - key: WHATSAPP_PROVIDER
+        value: disabled
+      - key: PAYMENT_WEBHOOK_STRICT
+        value: "true"
+      - key: PAYMENT_WEBHOOK_SECRET
+        sync: false
+      - key: MTN_WEBHOOK_SECRET
+        sync: false
+      - key: ORANGE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false

@@ -18,7 +18,8 @@ export class SectorsComponent {
       { name: 'name', label: 'Nom du secteur', type: 'text', required: true },
       { name: 'code', label: 'Code (ex: CSHOP)', type: 'text', required: true },
       { name: 'description', label: 'Description', type: 'textarea' },
-      { name: 'iconUrl', label: 'URL Icône', type: 'url' }
+      { name: 'iconUrl', label: 'URL Icône', type: 'url' },
+      { name: 'imageUrls', label: 'Images du carrousel', type: 'file-list' }
     ]
   };
 }

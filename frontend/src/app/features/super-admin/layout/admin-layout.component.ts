@@ -49,6 +49,11 @@ export class AdminLayoutComponent {
       route: '/super-admin/shop/products'
     },
     {
+      icon: '🏷️',
+      label: 'Promos C\'Shop',
+      route: '/super-admin/shop/promotions'
+    },
+    {
       icon: '🍖',
       label: 'Produits C\'Grill',
       route: '/super-admin/grill/products'
@@ -69,6 +74,31 @@ export class AdminLayoutComponent {
       route: '/super-admin/todo/services'
     },
     {
+      icon: '🎉',
+      label: 'C\'Events Catalogues',
+      route: '/super-admin/events/catalog'
+    },
+    {
+      icon: '🗓️',
+      label: 'C\'Events Réservations',
+      route: '/super-admin/events/bookings'
+    },
+    {
+      icon: '🚚',
+      label: 'C\'Express Livraisons',
+      route: '/super-admin/express/deliveries'
+    },
+    {
+      icon: '🛵',
+      label: 'C\'Express Couriers',
+      route: '/super-admin/express/couriers'
+    },
+    {
+      icon: '🌍',
+      label: 'C\'Express Import/Export',
+      route: '/super-admin/express/import-export'
+    },
+    {
       icon: '👷',
       label: 'Employés',
       route: '/super-admin/employees'
@@ -80,8 +110,28 @@ export class AdminLayoutComponent {
     },
     {
       icon: '📦',
-      label: 'Toutes les Commandes',
+      label: 'Commandes multi-services',
       route: '/super-admin/orders'
+    },
+    {
+      icon: '🎉',
+      label: 'Campagnes Fêtes',
+      route: '/super-admin/marketing/campaigns'
+    },
+    {
+      icon: '📰',
+      label: 'Actualités',
+      route: '/super-admin/marketing/news'
+    },
+    {
+      icon: '🦶',
+      label: 'Footer Site',
+      route: '/super-admin/marketing/footer'
+    },
+    {
+      icon: '📄',
+      label: 'Pages Site',
+      route: '/super-admin/marketing/pages'
     }
   ];
 

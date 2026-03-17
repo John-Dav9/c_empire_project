@@ -30,7 +30,7 @@
           </td>
           <td class="actions">
             <button class="btn-icon" (click)="editItem(item)">✏️</button>
-            <button class="btn-icon" (click)="deleteItem(item.id)">🗑️</button>
+            <button class="btn-icon" (click)="deleteItem(item[config.idField || 'id'])">🗑️</button>
           </td>
         </tr>
       </tbody>
@@ -76,6 +76,72 @@
                     class="form-control"
                     rows="3"></textarea>
 
+          <div *ngIf="field.type === 'url-list'" class="url-list">
+            <div
+              class="url-list-row"
+              *ngFor="let url of formData[field.name]; let i = index"
+            >
+              <input
+                type="url"
+                [(ngModel)]="formData[field.name][i]"
+                [name]="field.name + '-' + i"
+                [required]="!!field.required && i === 0"
+                class="form-control"
+                placeholder="https://exemple.com/image.jpg"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon-text"
+                (click)="removeUrlField(field.name, i)"
+                title="Supprimer cette URL"
+              >
+                −
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-primary btn-add-url"
+              (click)="addUrlField(field.name)"
+            >
+              + Ajouter une image
+            </button>
+          </div>
+
+          <div *ngIf="field.type === 'file-list'" class="url-list">
+            <div class="file-upload-row">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                (change)="onFilesSelected(field.name, $event)"
+                class="form-control"
+              />
+              <span class="uploading-hint" *ngIf="uploadingFiles">Upload...</span>
+            </div>
+
+            <div
+              class="url-list-row"
+              *ngFor="let filePath of formData[field.name]; let i = index"
+            >
+              <input
+                type="text"
+                [ngModel]="filePath"
+                [name]="field.name + '-file-' + i"
+                readonly
+                class="form-control"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary btn-icon-text"
+                (click)="removeListItem(field.name, i)"
+                title="Retirer cette image"
+              >
+                −
+              </button>
+            </div>
+          </div>
+
           <select *ngIf="field.type === 'select'"
                   [(ngModel)]="formData[field.name]"
                   [name]="field.name"
@@ -99,7 +165,7 @@
           <button type="button" class="btn btn-secondary" (click)="showModal = false">
             Annuler
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="saving">
+          <button type="submit" class="btn btn-primary" [disabled]="saving || uploadingFiles">
             {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
           </button>
         </div>
