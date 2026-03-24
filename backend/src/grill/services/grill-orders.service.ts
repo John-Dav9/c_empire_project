@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 
 import { GrillOrder } from '../entities/grill-order.entity';
 import { GrillOrderItem } from '../entities/grill-order-item.entity';
@@ -14,9 +16,14 @@ import { GrillMenuPack } from '../entities/grill-menu-pack.entity';
 import { CreateGrillOrderDto } from '../dto/create-grill-order.dto';
 import { GrillOrderStatus } from '../enums/grill-order-status.enum';
 import { GrillDeliveryMode } from '../enums/grill-delivery-mode.enum';
+import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
+import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
+import { CexpressService } from 'src/express/express.service';
 
 @Injectable()
 export class GrillOrdersService {
+  private readonly logger = new Logger(GrillOrdersService.name);
+
   constructor(
     @InjectRepository(GrillOrder)
     private readonly orderRepo: Repository<GrillOrder>,
@@ -29,6 +36,8 @@ export class GrillOrdersService {
 
     @InjectRepository(GrillMenuPack)
     private readonly packRepo: Repository<GrillMenuPack>,
+
+    private readonly cexpressService: CexpressService,
   ) {}
 
   // =========================
@@ -242,6 +251,31 @@ export class GrillOrdersService {
     order.expressOrderId = expressOrderId;
     order.status = GrillOrderStatus.OUT_FOR_DELIVERY;
     return this.orderRepo.save(order);
+  }
+
+  @OnEvent('payment.success')
+  async handlePaymentSuccess(event: PaymentSuccessEvent): Promise<void> {
+    if (event.referenceType !== PaymentReferenceType.GRILLFOOD_ORDER) return;
+
+    try {
+      await this.markAsPaid(event.referenceId, event.paymentId);
+
+      const order = await this.findOne(event.referenceId);
+      if (order.deliveryMode === GrillDeliveryMode.DELIVERY && order.address) {
+        const delivery = await this.cexpressService.createDelivery({
+          orderId: order.id,
+          dropoff: order.address,
+          amountToCollect: 0,
+        });
+        await this.attachExpressDelivery(order.id, delivery.deliveryId);
+        this.logger.log(`[C'EXPRESS] Livraison grill créée: ${delivery.deliveryId}`);
+      }
+    } catch (err) {
+      this.logger.error(
+        `Erreur gestion paiement GRILLFOOD_ORDER ${event.referenceId}`,
+        err,
+      );
+    }
   }
 
   async syncDeliveryStatusFromExpress(orderId: string, deliveryStatus: string) {

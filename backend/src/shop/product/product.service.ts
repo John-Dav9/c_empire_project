@@ -7,7 +7,7 @@ import { PromotionService } from '../promotion/promotion.service';
 import { PromotionType } from '../promotion/promotion-type.enum';
 import { Promotion } from '../promotion/promotion.entity';
 import { Review } from '../review/review.entity';
-import { CreateProductDto } from './dto/reate-product.dto';
+import { CreateProductDto } from './dto/create-product.dto';
 
 @Injectable()
 export class ProductService {

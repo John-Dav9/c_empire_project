@@ -1,5 +1,3 @@
-// src/core/payments/payments.controller.ts
-
 import {
   BadRequestException,
   Body,
@@ -16,6 +14,7 @@ import { InitPaymentDto } from './dto/init-payment.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
 import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
 import { Permissions } from '../permissions/permissions.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('payments')
 @UseGuards(JwtAuthGuard)
@@ -26,9 +25,8 @@ export class PaymentsController {
   @Permissions('payments:own:init')
   async initPayment(
     @Body() body: InitPaymentDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') userId: string,
   ) {
-    const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
     return this.paymentsService.initPayment({
       userId,
       referenceType: body.referenceType,

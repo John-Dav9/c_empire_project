@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { Payment } from './payment.entity';
 import { PaymentStatus } from './payment-status.enum';
@@ -24,29 +25,22 @@ import { StripeProvider } from './providers/stripe.provider';
 import { InvoicesService } from 'src/core/invoices/invoices.service';
 import { NotificationsService } from 'src/core/notifications/notifications.service';
 import { WebhookVerifier } from './webhooks/webhook-verifier';
-
-import { OrderService } from 'src/shop/order/order.service';
-import { OrderStatus } from 'src/shop/order/order-status.enum';
-import { DeliveryOption } from 'src/shop/order/order.entity';
-
 import { PaymentReferenceType } from './payment-reference-type.enum';
-import { CexpressService } from 'src/express/express.service';
-import { DeliveryService } from 'src/express/services/delivery.service';
-import { ImportExportService } from 'src/express/services/import-export.service';
+import { PaymentSuccessEvent } from './events/payment-success.event';
+import { User } from 'src/auth/entities/user.entity';
 
+// Entity imports (directs, sans importer les modules)
+import { Order } from 'src/shop/order/order.entity';
 import { EventBooking } from 'src/events/entities/event-booking.entity';
 import { EventBookingStatus } from 'src/events/enums/event-booking-status.enum';
-
-import { CleanBookingsService } from 'src/clean/services/clean-bookings.service';
+import { CleanBooking } from 'src/clean/entities/clean-booking.entity';
 import { CleanBookingStatus } from 'src/clean/enums/clean-booking-status.enum';
-
-import { TodoOrderService } from 'src/todo/services/todo-order.service';
+import { TodoOrder } from 'src/todo/entities/todo-order.entity';
 import { TodoOrderStatus } from 'src/todo/enums/todo-order-status.enum';
-
-import { GrillOrdersService } from 'src/grill/services/grill-orders.service';
+import { GrillOrder } from 'src/grill/entities/grill-order.entity';
 import { GrillOrderStatus } from 'src/grill/enums/grill-order-status.enum';
-import { GrillDeliveryMode } from 'src/grill/enums/grill-delivery-mode.enum';
-import { User } from 'src/auth/entities/user.entity';
+import { DeliveryEntity } from 'src/express/entities/delivery.entity';
+import { ImportExportEntity } from 'src/express/entities/import-export.entity';
 
 type PaymentMetadata = Record<string, unknown>;
 
@@ -73,27 +67,35 @@ export class PaymentsService {
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
 
+    // Repositories directs (plus de forwardRef circulaires)
+    @InjectRepository(Order)
+    private readonly orderRepo: Repository<Order>,
     @InjectRepository(EventBooking)
     private readonly eventBookingRepo: Repository<EventBooking>,
+    @InjectRepository(CleanBooking)
+    private readonly cleanBookingRepo: Repository<CleanBooking>,
+    @InjectRepository(TodoOrder)
+    private readonly todoOrderRepo: Repository<TodoOrder>,
+    @InjectRepository(GrillOrder)
+    private readonly grillOrderRepo: Repository<GrillOrder>,
+    @InjectRepository(DeliveryEntity)
+    private readonly deliveryRepo: Repository<DeliveryEntity>,
+    @InjectRepository(ImportExportEntity)
+    private readonly importExportRepo: Repository<ImportExportEntity>,
 
-    private readonly cleanBookingsService: CleanBookingsService,
-    private readonly todoOrderService: TodoOrderService,
-    private readonly grillOrdersService: GrillOrdersService,
-
+    // Providers de paiement
     private readonly stripeProvider: StripeProvider,
     private readonly paypalProvider: PaypalProvider,
     private readonly walletProvider: WalletProvider,
     private readonly mobileMoneyProvider: MobileMoneyProvider,
     private readonly cardPaymentProvider: CardPaymentProvider,
 
-    private readonly orderService: OrderService,
+    // Services non-circulaires
     private readonly invoicesService: InvoicesService,
     private readonly notificationsService: NotificationsService,
 
-    private readonly cexpressService: CexpressService,
-
-    private readonly deliveryService: DeliveryService,
-    private readonly importExportService: ImportExportService,
+    // EventEmitter pour découpler les modules métier
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private getProvider(provider: PaymentProvider): IPaymentProvider {
@@ -102,19 +104,14 @@ export class PaymentsService {
       case PaymentProvider.MTN_MOMO:
       case PaymentProvider.WAVE:
         return this.mobileMoneyProvider;
-
       case PaymentProvider.CARD:
         return this.cardPaymentProvider;
-
       case PaymentProvider.STRIPE:
         return this.stripeProvider;
-
       case PaymentProvider.PAYPAL:
         return this.paypalProvider;
-
       case PaymentProvider.WALLET:
         return this.walletProvider;
-
       default:
         throw new NotFoundException(
           `Payment provider not supported: ${provider}`,
@@ -171,7 +168,6 @@ export class PaymentsService {
     }
 
     const providerImpl = this.getProvider(payload.provider);
-
     const userRef = payload.userId
       ? ({ id: payload.userId } as User)
       : undefined;
@@ -184,7 +180,6 @@ export class PaymentsService {
       referenceType: payload.referenceType,
       referenceId: payload.referenceId,
       status: PaymentStatus.PENDING,
-
       orderId:
         payload.referenceType === PaymentReferenceType.SHOP_ORDER
           ? payload.referenceId
@@ -247,9 +242,7 @@ export class PaymentsService {
     if (status === 'SUCCESS') {
       payment.status = PaymentStatus.SUCCESS;
       await this.paymentRepo.save(payment);
-
       await this.onPaymentSuccess(payment);
-
       return payment;
     }
 
@@ -291,6 +284,9 @@ export class PaymentsService {
     return this.verify(providerTransactionId);
   }
 
+  // ==============================
+  // RESOLVE PAYABLE (repos directs)
+  // ==============================
   private async resolvePayable(payload: {
     userId?: string;
     referenceType: PaymentReferenceType;
@@ -302,16 +298,15 @@ export class PaymentsService {
   }> {
     switch (payload.referenceType) {
       case PaymentReferenceType.SHOP_ORDER: {
-        const order = await this.orderService.findOne(payload.referenceId);
-
-        if (payload.userId && order.userId !== payload.userId) {
+        const order = await this.orderRepo.findOne({
+          where: { id: payload.referenceId },
+        });
+        if (!order) throw new NotFoundException('Shop order not found');
+        if (payload.userId && order.userId !== payload.userId)
           throw new BadRequestException('You can only pay your own order');
-        }
         if (order.isPaid) throw new BadRequestException('Order already paid');
-
         const payable =
           Number(order.totalAmount) + Number(order.deliveryFee || 0);
-
         return {
           amount: payable,
           ownerUserId: order.userId,
@@ -320,16 +315,14 @@ export class PaymentsService {
       }
 
       case PaymentReferenceType.EXPRESS_DELIVERY: {
-        const delivery = await this.deliveryService.findOneOrFail(
-          payload.referenceId,
-        );
-
-        if (payload.userId && delivery.userId !== payload.userId) {
+        const delivery = await this.deliveryRepo.findOne({
+          where: { id: payload.referenceId },
+        });
+        if (!delivery) throw new NotFoundException('Delivery not found');
+        if (payload.userId && delivery.userId !== payload.userId)
           throw new BadRequestException('You can only pay your own delivery');
-        }
         if (delivery.paid)
           throw new BadRequestException('Delivery already paid');
-
         return {
           amount: Number(delivery.price),
           ownerUserId: delivery.userId,
@@ -342,17 +335,14 @@ export class PaymentsService {
           throw new BadRequestException(
             'userId is required for import/export payments',
           );
-        const req = await this.importExportService.findOneForUserOrFail(
-          payload.userId,
-          payload.referenceId,
-        );
-
-        if (!req.finalPrice || req.finalPrice <= 0) {
+        const req = await this.importExportRepo.findOne({
+          where: { id: payload.referenceId, userId: payload.userId },
+        });
+        if (!req) throw new NotFoundException('Import/export request not found');
+        if (!req.finalPrice || req.finalPrice <= 0)
           throw new BadRequestException(
             'No final price available yet for this import/export request',
           );
-        }
-
         return {
           amount: Number(req.finalPrice),
           ownerUserId: req.userId,
@@ -365,19 +355,12 @@ export class PaymentsService {
           where: { id: payload.referenceId },
           relations: ['user', 'event'],
         });
-
         if (!booking) throw new NotFoundException('Event booking not found');
-
         const ownerUserId = booking.user?.id;
-
-        if (payload.userId && ownerUserId && ownerUserId !== payload.userId) {
+        if (payload.userId && ownerUserId && ownerUserId !== payload.userId)
           throw new BadRequestException('You can only pay your own booking');
-        }
-
-        if (booking.status === EventBookingStatus.PAID) {
+        if (booking.status === EventBookingStatus.PAID)
           throw new BadRequestException('Booking already paid');
-        }
-
         return {
           amount: Number(booking.totalAmount),
           ownerUserId,
@@ -386,18 +369,15 @@ export class PaymentsService {
       }
 
       case PaymentReferenceType.CLEAN_BOOKING: {
-        const booking = await this.cleanBookingsService.findOne(
-          payload.referenceId,
-        );
-
-        if (payload.userId && booking.user?.id !== payload.userId) {
+        const booking = await this.cleanBookingRepo.findOne({
+          where: { id: payload.referenceId },
+          relations: ['user'],
+        });
+        if (!booking) throw new NotFoundException('Clean booking not found');
+        if (payload.userId && booking.user?.id !== payload.userId)
           throw new BadRequestException('You can only pay your own booking');
-        }
-
-        if (booking.status === CleanBookingStatus.CONFIRMED) {
+        if (booking.status === CleanBookingStatus.CONFIRMED)
           throw new BadRequestException('Booking already paid');
-        }
-
         return {
           amount: Number(booking.amount),
           ownerUserId: booking.user?.id,
@@ -406,18 +386,16 @@ export class PaymentsService {
       }
 
       case PaymentReferenceType.TODO_TASK: {
-        const order = await this.todoOrderService.findOne(payload.referenceId);
-
-        if (order.status !== TodoOrderStatus.PENDING) {
+        const order = await this.todoOrderRepo.findOne({
+          where: { id: payload.referenceId },
+        });
+        if (!order) throw new NotFoundException('Todo order not found');
+        if (order.status !== TodoOrderStatus.PENDING)
           throw new BadRequestException(
             'Todo task already paid or not payable',
           );
-        }
-
-        if (!order.amount || Number(order.amount) <= 0) {
+        if (!order.amount || Number(order.amount) <= 0)
           throw new BadRequestException('Todo task amount invalid');
-        }
-
         return {
           amount: Number(order.amount),
           metadata: { todoOrderId: order.id },
@@ -425,20 +403,16 @@ export class PaymentsService {
       }
 
       case PaymentReferenceType.GRILLFOOD_ORDER: {
-        const order = await this.grillOrdersService.findOne(
-          payload.referenceId,
-        );
-
-        if (order.status !== GrillOrderStatus.PENDING) {
+        const order = await this.grillOrderRepo.findOne({
+          where: { id: payload.referenceId },
+        });
+        if (!order) throw new NotFoundException('Grill order not found');
+        if (order.status !== GrillOrderStatus.PENDING)
           throw new BadRequestException(
             'Grill order already paid or not payable',
           );
-        }
-
-        if (!order.total || Number(order.total) <= 0) {
+        if (!order.total || Number(order.total) <= 0)
           throw new BadRequestException('Grill order total invalid');
-        }
-
         return {
           amount: Number(order.total),
           metadata: { grillOrderId: order.id },
@@ -452,153 +426,57 @@ export class PaymentsService {
     }
   }
 
+  // ==============================
+  // PAYMENT SUCCESS — via EventEmitter
+  // ==============================
   private async onPaymentSuccess(payment: Payment) {
-    switch (payment.referenceType) {
-      case PaymentReferenceType.SHOP_ORDER: {
-        await this.orderService.updateStatus(
-          payment.referenceId,
-          OrderStatus.PAID,
-        );
-        const order = await this.orderService.findOne(payment.referenceId);
+    // Émet l'événement → chaque module gère sa propre logique
+    const event = new PaymentSuccessEvent(
+      payment.id,
+      payment.referenceType,
+      payment.referenceId,
+      payment.provider,
+      payment.amount,
+      payment.user?.id,
+    );
+    this.eventEmitter.emit('payment.success', event);
 
-        const invoice = await this.invoicesService.generateInvoicePdf(
-          order,
-          payment,
-        );
-
-        await this.notificationsService.sendNotification({
-          userId: order.userId,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre commande ${order.id} a été payée. Facture: ${invoice.fileName}`,
-        });
-
-        if (
-          order.deliveryOption === DeliveryOption.CEXPRESS &&
-          order.deliveryAddress
-        ) {
-          const delivery = await this.cexpressService.createDelivery({
-            orderId: order.id,
-            dropoff: order.deliveryAddress,
-            amountToCollect: 0,
-          });
-          console.log('[CEXPRESS DELIVERY CREATED]', delivery);
-        }
-
-        return;
+    // Facture PDF pour commandes C'SHOP
+    if (payment.referenceType === PaymentReferenceType.SHOP_ORDER) {
+      const order = await this.orderRepo.findOne({
+        where: { id: payment.referenceId },
+        relations: ['items'],
+      });
+      if (order) {
+        await this.invoicesService.generateInvoicePdf(order, payment);
       }
-
-      case PaymentReferenceType.EXPRESS_DELIVERY: {
-        await this.deliveryService.markAsPaid(payment.referenceId);
-
-        await this.notificationsService.sendNotification({
-          userId: payment.user?.id,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre livraison C'EXPRESS ${payment.referenceId} est payée ✅`,
-        });
-
-        return;
-      }
-
-      case PaymentReferenceType.EXPRESS_IMPORT_EXPORT: {
-        await this.notificationsService.sendNotification({
-          userId: payment.user?.id,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre devis Import/Export ${payment.referenceId} a été payé ✅`,
-        });
-        return;
-      }
-
-      case PaymentReferenceType.EVENT_BOOKING: {
-        const booking = await this.eventBookingRepo.findOne({
-          where: { id: payment.referenceId },
-        });
-        if (!booking) return;
-
-        booking.status = EventBookingStatus.PAID;
-        await this.eventBookingRepo.save(booking);
-
-        await this.notificationsService.sendNotification({
-          userId: payment.user?.id,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre réservation C'EVENT ${booking.id} est payée ✅`,
-        });
-
-        return;
-      }
-
-      case PaymentReferenceType.CLEAN_BOOKING: {
-        await this.cleanBookingsService.markPaid(
-          payment.referenceId,
-          payment.id,
-          payment.provider,
-        );
-
-        await this.notificationsService.sendNotification({
-          userId: payment.user?.id,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre réservation C'CLEAN ${payment.referenceId} est payée ✅`,
-        });
-
-        return;
-      }
-
-      case PaymentReferenceType.TODO_TASK: {
-        await this.todoOrderService.markPaid(payment.referenceId);
-
-        await this.notificationsService.sendNotification({
-          userId: payment.user?.id,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre tâche C'TODO ${payment.referenceId} est payée ✅`,
-        });
-
-        return;
-      }
-
-      case PaymentReferenceType.GRILLFOOD_ORDER: {
-        await this.grillOrdersService.markAsPaid(
-          payment.referenceId,
-          payment.id,
-        );
-
-        const order = await this.grillOrdersService.findOne(
-          payment.referenceId,
-        );
-
-        await this.notificationsService.sendNotification({
-          userId: payment.user?.id,
-          channel: 'IN_APP',
-          title: 'Paiement confirmé',
-          message: `Votre commande C'GRILL ${order.id} est payée ✅`,
-        });
-
-        if (
-          order.deliveryMode === GrillDeliveryMode.DELIVERY &&
-          order.address
-        ) {
-          const delivery = await this.cexpressService.createDelivery({
-            orderId: order.id,
-            dropoff: order.address,
-            amountToCollect: 0,
-          });
-
-          await this.grillOrdersService.attachExpressDelivery(
-            order.id,
-            delivery.deliveryId,
-          );
-          console.log('[CEXPRESS DELIVERY CREATED FOR GRILL]', delivery);
-        }
-
-        return;
-      }
-
-      default:
-        return;
     }
+
+    // Notifications centralisées (NotificationsService pas circulaire)
+    await this.sendSuccessNotification(payment);
+  }
+
+  private async sendSuccessNotification(payment: Payment) {
+    const userId = payment.user?.id;
+    if (!userId) return;
+
+    const labels: Record<PaymentReferenceType, string> = {
+      [PaymentReferenceType.SHOP_ORDER]: "C'SHOP",
+      [PaymentReferenceType.EXPRESS_DELIVERY]: "C'EXPRESS livraison",
+      [PaymentReferenceType.EXPRESS_IMPORT_EXPORT]: "C'EXPRESS import/export",
+      [PaymentReferenceType.EVENT_BOOKING]: "C'EVENT",
+      [PaymentReferenceType.CLEAN_BOOKING]: "C'CLEAN",
+      [PaymentReferenceType.TODO_TASK]: "C'TODO",
+      [PaymentReferenceType.GRILLFOOD_ORDER]: "C'GRILL",
+    };
+
+    const label = labels[payment.referenceType] ?? 'Service';
+
+    await this.notificationsService.sendNotification({
+      userId,
+      channel: 'IN_APP',
+      title: 'Paiement confirmé ✅',
+      message: `Votre ${label} ${payment.referenceId} a été payé avec succès.`,
+    });
   }
 }

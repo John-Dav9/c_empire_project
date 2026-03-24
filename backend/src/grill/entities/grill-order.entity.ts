@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { GrillOrderStatus } from '../enums/grill-order-status.enum';
 import { GrillDeliveryMode } from '../enums/grill-delivery-mode.enum';
@@ -46,6 +47,7 @@ export class GrillOrder {
   currency: string;
 
   // Statut
+  @Index()
   @Column({
     type: 'enum',
     enum: GrillOrderStatus,

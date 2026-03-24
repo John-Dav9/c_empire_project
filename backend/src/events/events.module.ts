@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CEventController } from './controllers/event.controller';
@@ -18,7 +18,7 @@ import { PaymentsModule } from 'src/core/payments/payments.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Event, EventBooking]),
-    forwardRef(() => PaymentsModule),
+    PaymentsModule,
   ],
   controllers: [CEventController, EventBookingController],
   providers: [CEventService, EventBookingService, EventAiService],

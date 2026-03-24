@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Payment } from './payment.entity';
@@ -11,28 +11,32 @@ import { StripeProvider } from './providers/stripe.provider';
 import { PaypalProvider } from './providers/paypal.provider';
 import { WalletProvider } from './providers/wallet.provider';
 
-import { OrderModule } from 'src/shop/order/order.module';
 import { InvoicesModule } from 'src/core/invoices/invoices.module';
 import { NotificationsModule } from 'src/core/notifications/notifications.module';
-import { CexpressModule } from 'src/express/express.module';
-import { EventBooking } from 'src/events/entities/event-booking.entity';
 
-import { CCleanModule } from 'src/clean/clean.module';
-import { TodoModule } from 'src/todo/todo.module';
-import { GrillModule } from 'src/grill/grill.module';
-import { CshopModule } from 'src/shop/shop.module';
+// Entités importées directement (pas via leurs modules, évite les circular deps)
+import { Order } from 'src/shop/order/order.entity';
+import { EventBooking } from 'src/events/entities/event-booking.entity';
+import { CleanBooking } from 'src/clean/entities/clean-booking.entity';
+import { TodoOrder } from 'src/todo/entities/todo-order.entity';
+import { GrillOrder } from 'src/grill/entities/grill-order.entity';
+import { DeliveryEntity } from 'src/express/entities/delivery.entity';
+import { ImportExportEntity } from 'src/express/entities/import-export.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Payment, EventBooking]),
-    forwardRef(() => InvoicesModule),
+    TypeOrmModule.forFeature([
+      Payment,
+      Order,
+      EventBooking,
+      CleanBooking,
+      TodoOrder,
+      GrillOrder,
+      DeliveryEntity,
+      ImportExportEntity,
+    ]),
+    InvoicesModule,
     NotificationsModule,
-    forwardRef(() => OrderModule),
-    forwardRef(() => CCleanModule),
-    forwardRef(() => TodoModule),
-    forwardRef(() => GrillModule),
-    forwardRef(() => CexpressModule),
-    forwardRef(() => CshopModule),
   ],
   controllers: [PaymentsController],
   providers: [

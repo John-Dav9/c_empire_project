@@ -2,18 +2,24 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 
 import { DeliveryEntity } from '../entities/delivery.entity';
 import { CreateDeliveryDto } from '../dto/create-delivery.dto';
 import { DeliveryStatus } from '../enums/delivery-status.enum';
 import { PricingService } from './pricing.service';
+import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
+import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 
 @Injectable()
 export class DeliveryService {
+  private readonly logger = new Logger(DeliveryService.name);
+
   constructor(
     @InjectRepository(DeliveryEntity)
     private readonly deliveryRepo: Repository<DeliveryEntity>,
@@ -217,9 +223,18 @@ export class DeliveryService {
     }
 
     delivery.paid = true;
-    // On confirme automatiquement au paiement
     delivery.status = DeliveryStatus.CONFIRMED;
 
     return this.deliveryRepo.save(delivery);
+  }
+
+  @OnEvent('payment.success')
+  async handlePaymentSuccess(event: PaymentSuccessEvent): Promise<void> {
+    if (event.referenceType !== PaymentReferenceType.EXPRESS_DELIVERY) return;
+    try {
+      await this.markAsPaid(event.referenceId);
+    } catch (err) {
+      this.logger.error(`Erreur gestion paiement EXPRESS_DELIVERY ${event.referenceId}`, err);
+    }
   }
 }

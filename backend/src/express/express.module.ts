@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CexpressService } from './express.service';
 
@@ -34,9 +34,8 @@ import { NotificationsModule } from 'src/core/notifications/notifications.module
       CourierEntity,
     ]),
 
-    // Garde le pattern global utilisé dans le projet
-    forwardRef(() => PaymentsModule),
-    forwardRef(() => NotificationsModule),
+    PaymentsModule,
+    NotificationsModule,
   ],
 
   controllers: [

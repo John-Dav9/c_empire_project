@@ -2,9 +2,11 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 
 import { Order, DeliveryOption } from './order.entity';
 import { OrderItem } from './order-item.entity';
@@ -15,9 +17,13 @@ import { PromotionService } from '../promotion/promotion.service';
 import { PromotionType } from '../promotion/promotion-type.enum';
 import { ProductService } from '../product/product.service';
 import { CexpressService } from 'src/express/express.service';
+import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
+import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -229,5 +235,33 @@ export class OrderService {
     }
 
     return this.orderRepo.save(order);
+  }
+
+  @OnEvent('payment.success')
+  async handlePaymentSuccess(event: PaymentSuccessEvent): Promise<void> {
+    if (event.referenceType !== PaymentReferenceType.SHOP_ORDER) return;
+
+    try {
+      await this.updateStatus(event.referenceId, OrderStatus.PAID);
+
+      // Créer livraison C'Express si option CEXPRESS choisie
+      const order = await this.findOne(event.referenceId);
+      if (
+        order.deliveryOption === DeliveryOption.CEXPRESS &&
+        order.deliveryAddress
+      ) {
+        const delivery = await this.cexpressService.createDelivery({
+          orderId: order.id,
+          dropoff: order.deliveryAddress,
+          amountToCollect: 0,
+        });
+        this.logger.log(`[C'EXPRESS] Livraison créée pour commande ${order.id}: ${delivery.deliveryId}`);
+      }
+    } catch (err) {
+      this.logger.error(
+        `Erreur gestion paiement SHOP_ORDER ${event.referenceId}`,
+        err,
+      );
+    }
   }
 }

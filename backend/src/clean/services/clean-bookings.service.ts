@@ -1,20 +1,24 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/core/payments/providers/payment-provider.enum';
 import { Repository } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 import { CreateCleanBookingDto } from '../dto/create-clean-booking.dto';
 import { UpdateCleanBookingStatusDto } from '../dto/update-clean-booking-status.dto';
 import { CleanBooking } from '../entities/clean-booking.entity';
 import { CleanBookingStatus } from '../enums/clean-booking-status.enum';
-
-// ✅ Connexion au paiement global
+import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
+import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 
 @Injectable()
 export class CleanBookingsService {
+  private readonly logger = new Logger(CleanBookingsService.name);
+
   constructor(
     @InjectRepository(CleanBooking)
     private readonly repo: Repository<CleanBooking>,
@@ -47,10 +51,19 @@ export class CleanBookingsService {
     return this.repo.save(booking);
   }
 
-  /**
-   * ✅ Appelé par webhook / callback après paiement confirmé
-   * (ou par ton PaymentsService via un hook interne)
-   */
+  @OnEvent('payment.success')
+  async handlePaymentSuccess(event: PaymentSuccessEvent): Promise<void> {
+    if (event.referenceType !== PaymentReferenceType.CLEAN_BOOKING) return;
+    try {
+      await this.markPaid(event.referenceId, event.paymentId, event.provider);
+    } catch (err) {
+      this.logger.error(
+        `Erreur gestion paiement CLEAN_BOOKING ${event.referenceId}`,
+        err,
+      );
+    }
+  }
+
   async markPaid(bookingId: string, paymentId: string, provider?: string) {
     const booking = await this.findOne(bookingId);
 

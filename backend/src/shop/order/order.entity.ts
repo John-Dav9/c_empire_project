@@ -5,6 +5,7 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { OrderStatus } from './order-status.enum';
 import { OrderItem } from './order-item.entity';
@@ -19,6 +20,7 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column()
   userId: string;
 
@@ -37,6 +39,7 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   promoDiscount: number;
 
+  @Index()
   @Column({
     type: 'enum',
     enum: OrderStatus,

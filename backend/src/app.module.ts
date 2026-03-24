@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { join } from 'path';
 
 import { AppController } from './app.controller';
@@ -35,13 +37,31 @@ import { SiteSettingsModule } from './core/site-settings/site-settings.module';
 
 @Module({
   imports: [
-    // ✅ charge .env (IMPORTANT)
+    // ✅ Config .env
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: process.env.ENV_FILE || join(process.cwd(), '.env'),
     }),
 
-    // ✅ seule connexion DB ici
+    // ✅ Rate limiting : 100 requêtes / 60s par IP (global)
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000, // ms
+        limit: 100,
+      },
+      // Limite plus stricte pour les routes sensibles (auth, payments)
+      {
+        name: 'strict',
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
+
+    // ✅ Event emitter (découplage PaymentsModule ↔ modules métier)
+    EventEmitterModule.forRoot(),
+
+    // ✅ Seule connexion DB
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST ?? '127.0.0.1',
@@ -75,7 +95,7 @@ import { SiteSettingsModule } from './core/site-settings/site-settings.module';
   controllers: [AppController, HealthController],
   providers: [
     AppService,
-    // Les guards globaux dans le bon ordre: d'abord JWT, puis rôles
+    // Guards globaux dans le bon ordre: JWT → Rôles → Permissions
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

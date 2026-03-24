@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { GrillProduct } from './entities/grill-product.entity';
@@ -26,8 +26,8 @@ import { CexpressModule } from 'src/express/express.module';
       GrillMenuPack,
       GrillMenuPackItem,
     ]),
-    forwardRef(() => PaymentsModule), // to avoid circular dependency
-    forwardRef(() => CexpressModule), // ✅ pour injecter DeliveryService
+    PaymentsModule,
+    CexpressModule,
   ],
   controllers: [
     GrillProductsController,

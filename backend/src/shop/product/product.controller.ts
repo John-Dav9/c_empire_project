@@ -15,7 +15,7 @@ import {
 import { ProductService } from './product.service';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './product.entity';
-import { CreateProductDto } from './dto/reate-product.dto';
+import { CreateProductDto } from './dto/create-product.dto';
 
 import { UseGuards } from '@nestjs/common';
 import { UseInterceptors } from '@nestjs/common';

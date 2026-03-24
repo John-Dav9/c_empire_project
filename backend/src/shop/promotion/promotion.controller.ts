@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { PromotionService } from './promotion.service';
@@ -18,6 +17,7 @@ import { Roles } from 'src/core/roles/roles.decorator';
 import { UserRole } from 'src/auth/enums/user-role.enum';
 import { Permissions } from 'src/core/permissions/permissions.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
@@ -45,8 +45,8 @@ export class PromotionController {
 
   @Post()
   @Permissions('shop:promotions:create')
-  create(@Body() dto: CreatePromoDto, @Request() req) {
-    return this.promoService.create(dto, req.user?.sub);
+  create(@Body() dto: CreatePromoDto, @CurrentUser('userId') userId: string) {
+    return this.promoService.create(dto, userId);
   }
 
   @Get()

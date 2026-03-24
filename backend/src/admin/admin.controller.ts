@@ -6,7 +6,6 @@ import {
   Param,
   Body,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
@@ -15,17 +14,13 @@ import { RolesGuard } from '../core/roles/roles.guard';
 import { Roles } from '../core/roles/roles.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
 import { Permissions } from 'src/core/permissions/permissions.decorator';
-import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
-
-  private extractUserId(req: AuthenticatedRequest): string {
-    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
-  }
 
   @Get('users')
   @Permissions('users:read')
@@ -64,30 +59,26 @@ export class AdminController {
   async updateUserRole(
     @Param('id') userId: string,
     @Body('role') role: UserRole,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') actorId: string,
   ) {
-    return this.adminService.updateUserRole(
-      userId,
-      role,
-      this.extractUserId(req),
-    );
+    return this.adminService.updateUserRole(userId, role, actorId);
   }
 
   @Patch('users/:id/toggle-status')
   @Permissions('users:update')
   async toggleUserStatus(
     @Param('id') userId: string,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') actorId: string,
   ) {
-    return this.adminService.toggleUserStatus(userId, this.extractUserId(req));
+    return this.adminService.toggleUserStatus(userId, actorId);
   }
 
   @Delete('users/:id')
   @Permissions('users:delete')
   async deleteUser(
     @Param('id') userId: string,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') actorId: string,
   ) {
-    return this.adminService.deleteUser(userId, this.extractUserId(req));
+    return this.adminService.deleteUser(userId, actorId);
   }
 }

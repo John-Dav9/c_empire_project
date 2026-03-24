@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 
 import { Event } from '../entities/event.entity';
 import { EventBooking } from '../entities/event-booking.entity';
@@ -17,9 +19,12 @@ import { UpdateEventBookingDto } from '../dto/update-booking.dto';
 import { User } from 'src/auth/entities/user.entity';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 import { PaymentsService } from 'src/core/payments/payments.service';
+import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
 
 @Injectable()
 export class EventBookingService {
+  private readonly logger = new Logger(EventBookingService.name);
+
   constructor(
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
@@ -177,5 +182,20 @@ export class EventBookingService {
       relations: ['user', 'event', 'payment'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  @OnEvent('payment.success')
+  async handlePaymentSuccess(event: PaymentSuccessEvent): Promise<void> {
+    if (event.referenceType !== PaymentReferenceType.EVENT_BOOKING) return;
+    try {
+      const booking = await this.bookingRepository.findOne({
+        where: { id: event.referenceId },
+      });
+      if (!booking || booking.status !== EventBookingStatus.PENDING) return;
+      booking.status = EventBookingStatus.PAID;
+      await this.bookingRepository.save(booking);
+    } catch (err) {
+      this.logger.error(`Erreur gestion paiement EVENT_BOOKING ${event.referenceId}`, err);
+    }
   }
 }

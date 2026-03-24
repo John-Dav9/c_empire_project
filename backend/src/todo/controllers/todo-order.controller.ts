@@ -1,4 +1,3 @@
-// src/sectors/c-todo/controllers/todo-order.controller.ts
 import {
   Controller,
   Post,
@@ -6,7 +5,6 @@ import {
   Get,
   Patch,
   Param,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { CreateTodoOrderDto } from '../dto/create-todo-order.dto';
@@ -19,8 +17,8 @@ import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/core/roles/roles.guard';
 import { Roles } from 'src/core/roles/roles.decorator';
 import { UserRole } from 'src/auth/enums/user-role.enum';
-import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
 import { Permissions } from 'src/core/permissions/permissions.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('c-todo/orders')
 @UseGuards(JwtAuthGuard)
@@ -31,14 +29,15 @@ export class TodoOrderController {
   ) {}
 
   @Post()
-  create(@Body() dto: CreateTodoOrderDto, @Req() req: AuthenticatedRequest) {
-    const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  create(
+    @Body() dto: CreateTodoOrderDto,
+    @CurrentUser('userId') userId: string,
+  ) {
     return this.service.create(dto, userId);
   }
 
   @Get('my')
-  findMine(@Req() req: AuthenticatedRequest) {
-    const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  findMine(@CurrentUser('userId') userId: string) {
     return this.service.findByUser(userId);
   }
 
@@ -69,17 +68,13 @@ export class TodoOrderController {
     return this.service.updateStatus(id, status);
   }
 
-  // ✅ init paiement
   @Post(':id/pay')
   async pay(
     @Param('id') id: string,
-    @Body()
-    body: { provider: PaymentProvider; metadata?: Record<string, unknown> },
-    @Req() req: AuthenticatedRequest,
+    @Body() body: { provider: PaymentProvider; metadata?: Record<string, unknown> },
+    @CurrentUser('userId') userId: string,
   ) {
     const order = await this.service.findOne(id);
-    const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
-
     return this.paymentsService.initPayment({
       userId,
       provider: body.provider,

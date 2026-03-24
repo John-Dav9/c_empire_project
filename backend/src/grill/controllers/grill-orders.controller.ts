@@ -5,7 +5,6 @@ import {
   Param,
   Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { GrillOrdersService } from '../services/grill-orders.service';
@@ -19,9 +18,9 @@ import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/core/roles/roles.guard';
 import { Roles } from 'src/core/roles/roles.decorator';
 import { UserRole } from 'src/auth/enums/user-role.enum';
-import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
 import { Permissions } from 'src/core/permissions/permissions.decorator';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('grill/orders')
 export class GrillOrdersController {
@@ -69,9 +68,8 @@ export class GrillOrdersController {
   pay(
     @Param('id') id: string,
     @Body() body: { provider: PaymentProvider },
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') userId: string,
   ) {
-    const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
     return this.paymentsService.initPayment({
       userId,
       referenceType: PaymentReferenceType.GRILLFOOD_ORDER,

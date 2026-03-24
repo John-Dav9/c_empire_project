@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -51,6 +52,7 @@ export class CleanBooking {
   scheduledAt: string; // ISO string (MVP)
 
   // Statut
+  @Index()
   @Column({
     type: 'enum',
     enum: CleanBookingStatus,

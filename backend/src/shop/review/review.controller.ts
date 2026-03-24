@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ReviewService } from './review.service';
@@ -15,22 +14,18 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 import { Roles } from 'src/core/roles/roles.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/core/roles/roles.guard';
-import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
 import { UserRole } from 'src/auth/enums/user-role.enum';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('cshop/reviews')
 @UseGuards(JwtAuthGuard)
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
-  private extractUserId(req: AuthenticatedRequest): string {
-    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
-  }
-
   @Post()
-  create(@Body() dto: CreateReviewDto, @Req() req: AuthenticatedRequest) {
-    return this.reviewService.create(this.extractUserId(req), dto);
+  create(@Body() dto: CreateReviewDto, @CurrentUser('userId') userId: string) {
+    return this.reviewService.create(userId, dto);
   }
 
   @Public()
@@ -40,22 +35,22 @@ export class ReviewController {
   }
 
   @Get('me')
-  getMyReviews(@Req() req: AuthenticatedRequest) {
-    return this.reviewService.findUserReviews(this.extractUserId(req));
+  getMyReviews(@CurrentUser('userId') userId: string) {
+    return this.reviewService.findUserReviews(userId);
   }
 
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateReviewDto,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') userId: string,
   ) {
-    return this.reviewService.update(this.extractUserId(req), id, dto);
+    return this.reviewService.update(userId, id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    return this.reviewService.remove(this.extractUserId(req), id);
+  remove(@Param('id') id: string, @CurrentUser('userId') userId: string) {
+    return this.reviewService.remove(userId, id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

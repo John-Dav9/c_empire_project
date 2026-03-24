@@ -7,7 +7,6 @@ import {
   Post,
   UseGuards,
   Res,
-  Req,
   ForbiddenException,
 } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -21,30 +20,21 @@ import { Permissions } from 'src/core/permissions/permissions.decorator';
 import type { Response } from 'express';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('cshop/orders')
 @UseGuards(JwtAuthGuard)
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
-  private extractUserId(req: AuthenticatedRequest): string {
-    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
-  }
-
-  private isAdmin(req: AuthenticatedRequest): boolean {
-    const role = req.user?.role;
-    return role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
-  }
-
   @Post('checkout')
-  checkout(@Body() dto: CreateOrderDto, @Req() req: AuthenticatedRequest) {
-    return this.orderService.checkout(this.extractUserId(req), dto);
+  checkout(@Body() dto: CreateOrderDto, @CurrentUser('userId') userId: string) {
+    return this.orderService.checkout(userId, dto);
   }
 
   @Get('me')
-  getMyOrders(@Req() req: AuthenticatedRequest) {
-    return this.orderService.findUserOrders(this.extractUserId(req));
+  getMyOrders(@CurrentUser('userId') userId: string) {
+    return this.orderService.findUserOrders(userId);
   }
 
   @UseGuards(RolesGuard)
@@ -56,9 +46,14 @@ export class OrderController {
   }
 
   @Get(':id')
-  async getOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  async getOne(
+    @Param('id') id: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
     const order = await this.orderService.findOne(id);
-    if (order.userId !== this.extractUserId(req) && !this.isAdmin(req)) {
+    const isAdmin = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+    if (order.userId !== userId && !isAdmin) {
       throw new ForbiddenException('Access denied');
     }
     return order;
@@ -75,14 +70,14 @@ export class OrderController {
   @Get(':id/invoice')
   async downloadInvoice(
     @Param('id') orderId: string,
-    @Req() req: AuthenticatedRequest,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: UserRole,
     @Res() res: Response,
   ) {
     const order = await this.orderService.findOne(orderId);
+    const isAdmin = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
 
-    const requestUserId = this.extractUserId(req);
-    const isAdmin = this.isAdmin(req);
-    if (order.userId !== requestUserId && !isAdmin) {
+    if (order.userId !== userId && !isAdmin) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

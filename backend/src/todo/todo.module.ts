@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TodoOrder } from './entities/todo-order.entity';
@@ -21,7 +21,7 @@ import { TodoPublicController } from './controllers/todo-public.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([TodoOrder, TodoServiceEntity]),
-    forwardRef(() => PaymentsModule),
+    PaymentsModule,
   ],
   providers: [
     TodoOrderService,

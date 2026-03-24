@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -27,15 +28,18 @@ export class Payment {
   @Column({ type: 'enum', enum: PaymentProvider })
   provider: PaymentProvider;
 
+  @Index()
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
 
+  @Index()
   @Column({ nullable: true })
   providerTransactionId?: string;
 
   @Column({ type: 'enum', enum: PaymentReferenceType })
   referenceType: PaymentReferenceType;
 
+  @Index()
   @Column()
   referenceId: string;
 

@@ -1,17 +1,15 @@
-// src/core/notifications/notifications.controller.ts
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  // Récupérer mes notifications (utilisateur connecté)
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getMyNotifications(@Req() req) {
-    const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  async getMyNotifications(@CurrentUser('userId') userId: string) {
     return this.notificationsService.getUserNotifications(userId);
   }
 }

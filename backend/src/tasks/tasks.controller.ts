@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
@@ -16,22 +15,21 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../core/roles/roles.guard';
 import { Roles } from '../core/roles/roles.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
-import type { AuthenticatedRequest } from 'src/interfaces/authenticated-request.interface';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
-  private extractUserId(req: AuthenticatedRequest): string {
-    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
-  }
-
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  create(@Body() dto: CreateTaskDto, @Req() req: AuthenticatedRequest) {
-    return this.tasksService.create(dto, this.extractUserId(req));
+  create(
+    @Body() dto: CreateTaskDto,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.tasksService.create(dto, userId);
   }
 
   @Get()
@@ -44,8 +42,8 @@ export class TasksController {
   @Get('my-tasks')
   @UseGuards(RolesGuard)
   @Roles(UserRole.EMPLOYEE)
-  getMyTasks(@Req() req: AuthenticatedRequest) {
-    return this.tasksService.findByEmployee(this.extractUserId(req));
+  getMyTasks(@CurrentUser('userId') userId: string) {
+    return this.tasksService.findByEmployee(userId);
   }
 
   @Get('employee/:employeeId')

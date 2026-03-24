@@ -2,17 +2,23 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OnEvent } from '@nestjs/event-emitter';
 
 import { ImportExportEntity } from '../entities/import-export.entity';
 import { CreateImportExportDto } from '../dto/create-import-export.dto';
 import { ImportExportStatus } from '../enums/import-export-status.enum';
+import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
+import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 
 @Injectable()
 export class ImportExportService {
+  private readonly logger = new Logger(ImportExportService.name);
+
   constructor(
     @InjectRepository(ImportExportEntity)
     private readonly importExportRepo: Repository<ImportExportEntity>,
@@ -169,5 +175,20 @@ export class ImportExportService {
 
     entity.status = ImportExportStatus.ACCEPTED;
     return this.importExportRepo.save(entity);
+  }
+
+  @OnEvent('payment.success')
+  async handlePaymentSuccess(event: PaymentSuccessEvent): Promise<void> {
+    if (event.referenceType !== PaymentReferenceType.EXPRESS_IMPORT_EXPORT) return;
+    try {
+      const entity = await this.importExportRepo.findOne({
+        where: { id: event.referenceId },
+      });
+      if (!entity || entity.status !== ImportExportStatus.ACCEPTED) return;
+      entity.status = ImportExportStatus.IN_PROGRESS;
+      await this.importExportRepo.save(entity);
+    } catch (err) {
+      this.logger.error(`Erreur gestion paiement EXPRESS_IMPORT_EXPORT ${event.referenceId}`, err);
+    }
   }
 }

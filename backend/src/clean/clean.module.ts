@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CleanServiceEntity } from './entities/clean-service.entity';
@@ -25,7 +25,7 @@ import { PaymentsModule } from 'src/core/payments/payments.module';
       CleanBooking,
       CleanReview,
     ]),
-    forwardRef(() => PaymentsModule),
+    PaymentsModule,
   ],
   controllers: [
     CleanServicesController,

@@ -5,6 +5,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { TodoOrderStatus } from '../enums/todo-order-status.enum';
 
@@ -20,6 +21,7 @@ export class TodoOrder {
   @Column({ length: 120 })
   email: string;
 
+  @Index()
   @Column({ nullable: true })
   userId?: string;
 
@@ -50,6 +52,7 @@ export class TodoOrder {
   @Column({ length: 8, default: 'XAF' })
   currency: string;
 
+  @Index()
   @Column({
     type: 'enum',
     enum: TodoOrderStatus,
