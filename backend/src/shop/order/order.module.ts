@@ -9,6 +9,7 @@ import { OrderService } from './order.service';
 import { CexpressModule } from 'src/express/express.module';
 import { PromotionModule } from '../promotion/promotion.module';
 import { ProductModule } from '../product/product.module';
+import { RelayPointModule } from '../relay-point/relay-point.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ProductModule } from '../product/product.module';
     CexpressModule,
     PromotionModule,
     ProductModule,
+    RelayPointModule,
   ],
   providers: [OrderService],
   controllers: [OrderController],

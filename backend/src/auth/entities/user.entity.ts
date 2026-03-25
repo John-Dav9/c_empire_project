@@ -13,6 +13,7 @@ import {
 import { Profile } from './profile.entity';
 import { Role } from 'src/core/roles/role.entity';
 import { UserRole } from '../enums/user-role.enum';
+import { EmployeeSpecialty } from '../enums/employee-specialty.enum';
 import { Sector } from 'src/core/sectors/entities/sector.entity';
 
 @Entity('users')
@@ -60,6 +61,13 @@ export class User {
 
   @Column({ nullable: true })
   sectorId?: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: EmployeeSpecialty,
+    nullable: true,
+  })
+  specialty?: EmployeeSpecialty | null;
 
   @OneToOne(() => Profile, (profile) => profile.user, { cascade: true })
   @JoinColumn()

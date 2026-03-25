@@ -11,11 +11,8 @@
 
   <div class="checkout-layout">
     <main class="checkout-main">
-      <section class="free-banner">
-        <mat-icon>check_circle</mat-icon>
-        <span>Livraison gratuite sur tous les articles de cette commande</span>
-      </section>
 
+      <!-- Adresse de livraison -->
       <section class="panel app-shell-card">
         <div class="panel-head">
           <h2>Adresse de livraison</h2>
@@ -40,140 +37,230 @@
         </form>
       </section>
 
+      <!-- Articles -->
       <section class="panel app-shell-card">
         <div class="panel-head">
           <h2>Articles de la commande</h2>
-          <span>{{ cartItems }} article(s)</span>
+          <span>{{ cartItemCount() }} article(s)</span>
         </div>
 
-        <div class="order-lines" *ngIf="checkoutItems.length > 0; else emptyCart">
-          <article class="order-line" *ngFor="let item of checkoutItems">
-            <img
-              class="line-image"
-              *ngIf="getItemImage(item) as itemImage; else lineNoImage"
-              [src]="itemImage"
-              [alt]="item.name"
-            />
-            <ng-template #lineNoImage>
-              <div class="line-image placeholder">
-                <mat-icon>shopping_bag</mat-icon>
-              </div>
-            </ng-template>
-
-            <div class="line-copy">
-              <h3>{{ item.name }}</h3>
-              <p class="price">{{ item.price | currency:'XOF' }}</p>
-            </div>
-
-            <div class="line-actions">
-              <label>Qté</label>
-              <select [value]="item.quantity" (change)="updateQuantity(item, $any($event.target).value)">
-                <option *ngFor="let qty of getCheckoutQuantityOptions(item)" [value]="qty">{{ qty }}</option>
-              </select>
-              <button type="button" class="remove-btn" (click)="removeItem(item)">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-          </article>
-        </div>
+        @if (checkoutItems().length > 0) {
+          <div class="order-lines">
+            @for (item of checkoutItems(); track item.id) {
+              <article class="order-line">
+                @if (getItemImage(item); as img) {
+                  <img class="line-image" [src]="img" [alt]="item.name" />
+                } @else {
+                  <div class="line-image placeholder">
+                    <mat-icon>shopping_bag</mat-icon>
+                  </div>
+                }
+                <div class="line-copy">
+                  <h3>{{ item.name }}</h3>
+                  <p class="price">{{ item.price | currencyXaf }}</p>
+                </div>
+                <div class="line-actions">
+                  <label>Qté</label>
+                  <select [value]="item.quantity" (change)="updateQuantity(item, $any($event.target).value)">
+                    @for (qty of getQuantityOptions(item); track qty) {
+                      <option [value]="qty">{{ qty }}</option>
+                    }
+                  </select>
+                  <button type="button" class="remove-btn" (click)="removeItem(item)" aria-label="Retirer">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <mat-icon>shopping_cart</mat-icon>
+            <p>Aucun article sélectionné pour le paiement.</p>
+          </div>
+        }
       </section>
 
+      <!-- Mode de livraison -->
+      <section class="panel app-shell-card">
+        <div class="panel-head">
+          <h2>Mode de livraison</h2>
+        </div>
+        <div class="delivery-options">
+          @for (mode of deliveryModes; track mode.id) {
+            <button
+              type="button"
+              class="delivery-option"
+              [class.selected]="selectedDeliveryMode() === mode.id"
+              (click)="selectDeliveryMode(mode.id)"
+            >
+              <div class="delivery-option-main">
+                <strong>{{ mode.label }}</strong>
+                @if (mode.badge) {
+                  <span class="badge">{{ mode.badge }}</span>
+                }
+              </div>
+              <small>{{ mode.desc }}</small>
+              <span class="delivery-fee">{{ mode.fee }}</span>
+            </button>
+          }
+        </div>
+
+        <!-- Sélecteur de point relais -->
+        @if (selectedDeliveryMode() === 'relay') {
+          <div class="relay-block">
+            <h3>Choisir un point relais</h3>
+            @if (relayPointsLoading()) {
+              <div class="relay-loading">
+                <mat-spinner diameter="32"></mat-spinner>
+                <span>Chargement des points relais...</span>
+              </div>
+            } @else if (relayPoints().length === 0) {
+              <p class="relay-empty">Aucun point relais disponible pour le moment.</p>
+            } @else {
+              <div class="relay-list">
+                @for (rp of relayPoints(); track rp.id) {
+                  <button
+                    type="button"
+                    class="relay-card"
+                    [class.selected]="selectedRelayPointId() === rp.id"
+                    (click)="selectRelayPoint(rp.id)"
+                  >
+                    <div class="relay-name">
+                      <mat-icon>store</mat-icon>
+                      <strong>{{ rp.name }}</strong>
+                    </div>
+                    <p class="relay-address">{{ rp.address }}, {{ rp.city }}</p>
+                    @if (rp.openingHours) {
+                      <p class="relay-hours">
+                        <mat-icon>schedule</mat-icon> {{ rp.openingHours }}
+                      </p>
+                    }
+                    @if (rp.phone) {
+                      <p class="relay-phone">
+                        <mat-icon>phone</mat-icon> {{ rp.phone }}
+                      </p>
+                    }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Info entrepôt -->
+        @if (selectedDeliveryMode() === 'warehouse') {
+          <div class="warehouse-info">
+            <mat-icon>warehouse</mat-icon>
+            <div>
+              <strong>Retrait à notre entrepôt</strong>
+              <p>Vous serez contacté pour convenir d'un horaire de retrait.</p>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Moyens de paiement -->
       <section class="panel app-shell-card">
         <div class="panel-head">
           <h2>Moyens de paiement</h2>
         </div>
-        <form [formGroup]="formGroup">
-          <div class="payment-methods">
+        <div class="payment-methods">
+          @for (method of paymentMethods; track method.id) {
             <button
               type="button"
-              *ngFor="let method of paymentMethods"
               class="payment-method"
               [class.selected]="formGroup.get('method')?.value === method.id"
               (click)="selectPaymentMethod(method.id)"
             >
               <span class="radio"></span>
               <mat-icon>{{ method.icon }}</mat-icon>
-              <div class="method-copy">
-                <strong>{{ method.name }}</strong>
-                <small>{{ method.description }}</small>
-              </div>
+              <strong>{{ method.name }}</strong>
             </button>
-          </div>
-
-          <div class="delivery-block">
-            <h3>Mode de livraison</h3>
-            <div class="delivery-options">
-              <button
-                type="button"
-                *ngFor="let option of deliveryOptions"
-                class="delivery-option"
-                [class.selected]="formGroup.get('deliveryOption')?.value === option.id"
-                (click)="selectDeliveryOption(option.id)"
-              >
-                <strong>{{ option.name }}</strong>
-                <small>{{ option.description }}</small>
-                <span class="badge" *ngIf="option.badge">{{ option.badge }}</span>
-              </button>
-            </div>
-          </div>
-        </form>
+          }
+        </div>
       </section>
     </main>
 
+    <!-- Résumé -->
     <aside class="summary-col">
       <div class="summary-card app-shell-card">
-        <h2>Résumé de la commande</h2>
+        <h2>Résumé</h2>
 
         <div class="promo-box">
           <input
             type="text"
-            [value]="promoCode"
-            (input)="promoCode = $any($event.target).value"
-            placeholder="Saisir le code"
+            [value]="promoCode()"
+            (input)="promoCode.set($any($event.target).value)"
+            placeholder="Code promo"
           />
-          <button type="button" (click)="applyPromoCode()" [disabled]="promoChecking">
-            {{ promoChecking ? '...' : 'Utiliser' }}
+          <button type="button" (click)="applyPromoCode()" [disabled]="promoChecking()">
+            {{ promoChecking() ? '...' : 'Utiliser' }}
           </button>
         </div>
-        <p class="promo-message" *ngIf="promoMessage">{{ promoMessage }}</p>
+        @if (promoMessage()) {
+          <p class="promo-message">{{ promoMessage() }}</p>
+        }
 
         <div class="sum-row">
-          <span>Total des articles</span>
-          <strong>{{ cartSubtotal | currency:'XOF' }}</strong>
+          <span>Sous-total articles</span>
+          <strong>{{ cartSubtotal() | currencyXaf }}</strong>
         </div>
         <div class="sum-row">
           <span>Livraison</span>
-          <strong>{{ deliveryFee | currency:'XOF' }}</strong>
+          <strong [class.free]="deliveryFee() === 0">
+            {{ deliveryFee() === 0 ? 'Gratuit' : (deliveryFee() | currencyXaf) }}
+          </strong>
         </div>
-        <div class="sum-row" *ngIf="promoDiscount > 0">
-          <span>Crédit / réduction</span>
-          <strong class="discount">- {{ promoDiscount | currency:'XOF' }}</strong>
+        @if (promoDiscount() > 0) {
+          <div class="sum-row">
+            <span>Réduction ({{ promoAppliedCode() }})</span>
+            <strong class="discount">- {{ promoDiscount() | currencyXaf }}</strong>
+          </div>
+        }
+        <div class="sum-total">
+          <span>Total</span>
+          <strong>{{ totalAfterPromo() | currencyXaf }}</strong>
         </div>
 
-        <div class="sum-total">
-          <span>Total commande</span>
-          <strong>{{ totalAfterPromo | currency:'XOF' }}</strong>
+        <div class="delivery-summary">
+          <mat-icon>local_shipping</mat-icon>
+          <span>{{ deliveryFeeLabel() }}</span>
         </div>
+
+        @if (selectedDeliveryMode() === 'relay' && !selectedRelayPointId()) {
+          <p class="relay-warning">
+            <mat-icon>info</mat-icon>
+            Veuillez sélectionner un point relais.
+          </p>
+        }
 
         <button
           type="button"
           class="pay-btn"
           (click)="submitPayment()"
-          [disabled]="billingForm.invalid || !formGroup.value.method || loading || checkoutItems.length === 0"
+          [disabled]="!canSubmit()"
         >
-          <span *ngIf="!loading">Commander et payer</span>
-          <span *ngIf="loading">Traitement...</span>
+          @if (loading()) {
+            <span>Traitement...</span>
+          } @else {
+            <span>Commander et payer</span>
+          }
         </button>
 
-        <div class="pending-payment" *ngIf="pendingPaymentRef && !success">
-          <p class="pending-title">Paiement initié</p>
-          <p>{{ pendingInstructions }}</p>
-          <p class="pending-ref">Référence: {{ pendingPaymentRef }}</p>
-          <button type="button" class="pay-btn verify-btn" (click)="verifyPendingPayment()" [disabled]="loading">
-            Vérifier le paiement
-          </button>
-          <p class="pending-info" *ngIf="pendingInfo">{{ pendingInfo }}</p>
-        </div>
+        @if (pendingPaymentRef() && !success()) {
+          <div class="pending-payment">
+            <p class="pending-title">Paiement initié</p>
+            <p>{{ pendingInstructions() }}</p>
+            <p class="pending-ref">Référence : {{ pendingPaymentRef() }}</p>
+            <button type="button" class="pay-btn verify-btn" (click)="verifyPendingPayment()" [disabled]="loading()">
+              Vérifier le paiement
+            </button>
+            @if (pendingInfo()) {
+              <p class="pending-info">{{ pendingInfo() }}</p>
+            }
+          </div>
+        }
 
         <div class="security-box">
           <h4><mat-icon>verified_user</mat-icon> Paiement sécurisé</h4>
@@ -187,24 +274,23 @@
     </aside>
   </div>
 
-  <div *ngIf="error" class="error-message">
-    {{ error }}
-  </div>
+  @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+  }
 
-  <div *ngIf="success" class="success-message">
-    <mat-icon>check_circle</mat-icon>
-    <div class="success-copy">
-      <p>Paiement effectué avec succès.</p>
-      <small *ngIf="successOrderId">Commande: {{ successOrderId }}</small>
-      <small *ngIf="successPaymentRef">Référence paiement: {{ successPaymentRef }}</small>
+  @if (success()) {
+    <div class="success-message">
+      <mat-icon>check_circle</mat-icon>
+      <div class="success-copy">
+        <p>Paiement effectué avec succès.</p>
+        @if (successOrderId()) {
+          <small>Commande : {{ successOrderId() }}</small>
+        }
+        @if (successPaymentRef()) {
+          <small>Référence : {{ successPaymentRef() }}</small>
+        }
+      </div>
+      <button type="button" mat-stroked-button (click)="closeSuccess()">Accueil</button>
     </div>
-    <button type="button" mat-stroked-button (click)="closeSuccess()">Accueil</button>
-  </div>
+  }
 </div>
-
-<ng-template #emptyCart>
-  <div class="empty-state">
-    <mat-icon>shopping_cart</mat-icon>
-    <p>Aucun article sélectionné pour le paiement.</p>
-  </div>
-</ng-template>

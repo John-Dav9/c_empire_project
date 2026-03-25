@@ -1,12 +1,20 @@
-import { Component, HostListener, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
 import { buildMediaUrl } from '../../core/config/api.config';
+import { CurrencyXafPipe } from '../../shared/pipes/currency-xaf.pipe';
 
 type GrillItem = {
   id: string;
@@ -35,55 +43,57 @@ type GrillPack = {
 
 @Component({
   selector: 'app-grill-public',
-  standalone: true,
-  imports: [CommonModule, MatIconModule, RouterLink, FormsModule],
+  imports: [MatIconModule, RouterLink, FormsModule, DecimalPipe, CurrencyXafPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:scroll)': 'onScroll()' },
   template: `
     <section class="grill-page page-enter">
       <header class="top-promo app-shell-card">
         <span><mat-icon>local_fire_department</mat-icon> Nouveau menu epice disponible</span>
         <span><mat-icon>delivery_dining</mat-icon> Livraison des 7 000 FCFA</span>
-        <a [routerLink]="['/grill/checkout']">Commander maintenant ({{ cartCount }})</a>
+        <a [routerLink]="['/grill/checkout']">Commander maintenant ({{ cartCount() }})</a>
       </header>
 
       <nav class="grill-nav app-shell-card">
-        <a href="#menu" [class.active]="currentSection === 'menu'" (click)="scrollToSection($event, 'menu')">Notre menu</a>
-        <a href="#offers" [class.active]="currentSection === 'offers'" (click)="scrollToSection($event, 'offers')">Bons plans</a>
-        <a href="#quality" [class.active]="currentSection === 'quality'" (click)="scrollToSection($event, 'quality')">Qualite</a>
-        <a href="#app" [class.active]="currentSection === 'app'" (click)="scrollToSection($event, 'app')">L'app C'Empire</a>
-        <a href="#contact" [class.active]="currentSection === 'contact'" (click)="scrollToSection($event, 'contact')">Contact</a>
+        <a href="#menu" [class.active]="currentSection() === 'menu'" (click)="scrollToSection($event, 'menu')">Notre menu</a>
+        <a href="#offers" [class.active]="currentSection() === 'offers'" (click)="scrollToSection($event, 'offers')">Bons plans</a>
+        <a href="#quality" [class.active]="currentSection() === 'quality'" (click)="scrollToSection($event, 'quality')">Qualite</a>
+        <a href="#app" [class.active]="currentSection() === 'app'" (click)="scrollToSection($event, 'app')">L'app C'Empire</a>
+        <a href="#contact" [class.active]="currentSection() === 'contact'" (click)="scrollToSection($event, 'contact')">Contact</a>
       </nav>
 
-      <section class="hero app-shell-card" id="offers" *ngIf="featuredItem as featured; else heroSkeleton">
-        <div class="hero-copy">
-          <p class="tag">C'Grill & Food</p>
-          <h1>{{ featured.title }}</h1>
-          <p>{{ featured.description || "Recette signature de C'Grill, preparee minute." }}</p>
-          <div class="hero-meta">
-            <strong>{{ featured.price | currency:'XOF' }}</strong>
-            <span>{{ featured.category || (featured.kind === 'pack' ? 'Menu pack' : 'Menu signature') }}</span>
-          </div>
-          <div class="hero-actions">
-            <button type="button" (click)="prevFeatured()" aria-label="Precedent">‹</button>
-            <button type="button" (click)="nextFeatured()" aria-label="Suivant">›</button>
-            <button type="button" (click)="addToCart(featured)">Ajouter au panier</button>
-          </div>
-        </div>
-        <div class="hero-visual">
-          <img *ngIf="featured.imageUrl; else heroFallback" [src]="featured.imageUrl" [alt]="featured.title" />
-          <ng-template #heroFallback>
-            <div class="fallback hero-fallback">
-              <mat-icon>restaurant</mat-icon>
-              <span>Photo menu</span>
+      @if (featuredItem(); as featured) {
+        <section class="hero app-shell-card" id="offers">
+          <div class="hero-copy">
+            <p class="tag">C'Grill & Food</p>
+            <h1>{{ featured.title }}</h1>
+            <p>{{ featured.description || "Recette signature de C'Grill, preparee minute." }}</p>
+            <div class="hero-meta">
+              <strong>{{ featured.price | currencyXaf }}</strong>
+              <span>{{ featured.category || (featured.kind === 'pack' ? 'Menu pack' : 'Menu signature') }}</span>
             </div>
-          </ng-template>
-        </div>
-      </section>
-
-      <ng-template #heroSkeleton>
+            <div class="hero-actions">
+              <button type="button" (click)="prevFeatured()" aria-label="Precedent">‹</button>
+              <button type="button" (click)="nextFeatured()" aria-label="Suivant">›</button>
+              <button type="button" (click)="addToCart(featured)">Ajouter au panier</button>
+            </div>
+          </div>
+          <div class="hero-visual">
+            @if (featured.imageUrl) {
+              <img [src]="featured.imageUrl" [alt]="featured.title" />
+            } @else {
+              <div class="fallback hero-fallback">
+                <mat-icon>restaurant</mat-icon>
+                <span>Photo menu</span>
+              </div>
+            }
+          </div>
+        </section>
+      } @else {
         <section class="hero app-shell-card">
           <div class="loading">Chargement des produits C'Grill...</div>
         </section>
-      </ng-template>
+      }
 
       <section class="quick-row">
         <article class="quick-card app-shell-card">
@@ -106,64 +116,85 @@ type GrillPack = {
       <section class="menu-shell app-shell-card" id="menu">
         <div class="menu-head">
           <h2>Notre menu C'Grill</h2>
-          <a [routerLink]="['/grill/checkout']">Voir mon panier grill ({{ cartCount }})</a>
+          <a [routerLink]="['/grill/checkout']">Voir mon panier grill ({{ cartCount() }})</a>
         </div>
 
         <div class="menu-filters">
           <input
             type="text"
-            [(ngModel)]="searchTerm"
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
             placeholder="Rechercher un menu ou une recette..."
           />
           <div class="chips">
-            <button type="button" [class.active]="selectedCategory === ''" (click)="selectedCategory = ''">Tous</button>
-            <button
-              type="button"
-              *ngFor="let category of categories"
-              [class.active]="selectedCategory === category"
-              (click)="selectedCategory = category"
-            >
-              {{ category }}
-            </button>
+            <button type="button" [class.active]="selectedCategory() === ''" (click)="selectedCategory.set('')">Tous</button>
+            @for (category of categories(); track category) {
+              <button
+                type="button"
+                [class.active]="selectedCategory() === category"
+                (click)="selectedCategory.set(category)"
+              >
+                {{ category }}
+              </button>
+            }
           </div>
         </div>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
-        <p class="notice" *ngIf="notice">{{ notice }}</p>
-        <div class="loading" *ngIf="loading">Chargement du catalogue grill...</div>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
+        @if (notice()) {
+          <p class="notice">{{ notice() }}</p>
+        }
+        @if (loading()) {
+          <div class="loading">Chargement du catalogue grill...</div>
+        }
 
-        <section class="grid" *ngIf="!loading">
-          <article class="card" *ngFor="let item of filteredItems">
-            <div class="img">
-              <img *ngIf="item.imageUrl; else fallback" [src]="item.imageUrl" [alt]="item.title" (error)="item.imageUrl = ''" />
-              <ng-template #fallback>
-                <div class="fallback">
-                  <mat-icon>restaurant</mat-icon>
-                  <span>Photo menu</span>
+        @if (!loading()) {
+          <section class="grid">
+            @for (item of filteredItems(); track item.id) {
+              <article class="card">
+                <div class="img">
+                  @if (item.imageUrl) {
+                    <img [src]="item.imageUrl" [alt]="item.title" (error)="onItemImageError(item.id)" />
+                  } @else {
+                    <div class="fallback">
+                      <mat-icon>restaurant</mat-icon>
+                      <span>Photo menu</span>
+                    </div>
+                  }
+                  @if (item.isAvailable !== false) {
+                    <span class="badge">Disponible</span>
+                  } @else {
+                    <span class="badge out">Indisponible</span>
+                  }
                 </div>
-              </ng-template>
-              <span class="badge" *ngIf="item.isAvailable !== false">Disponible</span>
-              <span class="badge out" *ngIf="item.isAvailable === false">Indisponible</span>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description || 'Menu du jour C\'Grill.' }}</p>
-            <div class="meta">
-              <span>{{ item.category || (item.kind === 'pack' ? 'Pack menu' : 'Menu') }}</span>
-              <strong>{{ item.price | currency:'XOF' }}</strong>
-            </div>
-            <div class="rating" *ngIf="(item.reviewsCount || 0) > 0; else noRating">
-              <span class="stars">
-                <mat-icon *ngFor="let s of stars(item.avgRating || 0)">{{ s ? 'star' : 'star_border' }}</mat-icon>
-              </span>
-              <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
-              <span class="count">({{ item.reviewsCount }} avis)</span>
-            </div>
-            <ng-template #noRating><p class="no-rating">Pas encore note</p></ng-template>
-            <div class="actions">
-              <button type="button" (click)="addToCart(item)" [disabled]="item.isAvailable === false">Commander</button>
-            </div>
-          </article>
-        </section>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description || "Menu du jour C'Grill." }}</p>
+                <div class="meta">
+                  <span>{{ item.category || (item.kind === 'pack' ? 'Pack menu' : 'Menu') }}</span>
+                  <strong>{{ item.price | currencyXaf }}</strong>
+                </div>
+                @if ((item.reviewsCount || 0) > 0) {
+                  <div class="rating">
+                    <span class="stars">
+                      @for (s of stars(item.avgRating || 0); track $index) {
+                        <mat-icon>{{ s ? 'star' : 'star_border' }}</mat-icon>
+                      }
+                    </span>
+                    <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
+                    <span class="count">({{ item.reviewsCount }} avis)</span>
+                  </div>
+                } @else {
+                  <p class="no-rating">Pas encore note</p>
+                }
+                <div class="actions">
+                  <button type="button" (click)="addToCart(item)" [disabled]="item.isAvailable === false">Commander</button>
+                </div>
+              </article>
+            }
+          </section>
+        }
       </section>
 
       <section class="quality app-shell-card" id="quality">
@@ -288,83 +319,80 @@ type GrillPack = {
   ],
 })
 export class GrillPublicComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
   private readonly cartStorageKey = 'grillCart';
 
-  items: GrillItem[] = [];
-  searchTerm = '';
-  selectedCategory = '';
-  loading = true;
-  error: string | null = null;
-  notice: string | null = null;
-  featuredIndex = 0;
-  currentSection: 'menu' | 'offers' | 'quality' | 'app' | 'contact' = 'menu';
+  readonly items = signal<GrillItem[]>([]);
+  readonly searchTerm = signal('');
+  readonly selectedCategory = signal('');
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly notice = signal<string | null>(null);
+  readonly featuredIndex = signal(0);
+  readonly currentSection = signal<'menu' | 'offers' | 'quality' | 'app' | 'contact'>('menu');
+  readonly cartCount = signal(0);
 
-  constructor(
-    private readonly api: ApiService,
-    private readonly router: Router,
-  ) {}
-
-  ngOnInit(): void {
-    this.loadCatalog();
-    setTimeout(() => this.detectCurrentSection(), 0);
-  }
-
-  @HostListener('window:scroll')
-  onScroll(): void {
-    this.detectCurrentSection();
-  }
-
-  get cartCount(): number {
-    const cart = JSON.parse(localStorage.getItem(this.cartStorageKey) || '[]');
-    return (Array.isArray(cart) ? cart : []).reduce(
-      (sum: number, item: any) => sum + Number(item.qty || 0),
-      0,
-    );
-  }
-
-  get categories(): string[] {
+  readonly categories = computed(() => {
     const set = new Set(
-      this.items
+      this.items()
         .map((item) => String(item.category || '').trim())
         .filter(Boolean),
     );
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }
+  });
 
-  get filteredItems(): GrillItem[] {
-    const q = this.searchTerm.trim().toLowerCase();
-    return this.items.filter((item) => {
-      const matchCategory = !this.selectedCategory || item.category === this.selectedCategory;
+  readonly filteredItems = computed(() => {
+    const q = this.searchTerm().trim().toLowerCase();
+    const cat = this.selectedCategory();
+    return this.items().filter((item) => {
+      const matchCategory = !cat || item.category === cat;
       const matchText =
         !q ||
         String(item.title || '').toLowerCase().includes(q) ||
         String(item.description || '').toLowerCase().includes(q);
       return matchCategory && matchText;
     });
+  });
+
+  readonly featuredItem = computed((): GrillItem | null => {
+    const all = this.items();
+    if (!all.length) return null;
+    const idx = this.featuredIndex();
+    const safe = ((idx % all.length) + all.length) % all.length;
+    return all[safe];
+  });
+
+  ngOnInit(): void {
+    this.cartCount.set(this.readCartCount());
+    this.loadCatalog();
+    setTimeout(() => this.detectCurrentSection(), 0);
   }
 
-  get featuredItem(): GrillItem | null {
-    if (!this.items.length) return null;
-    const safe = ((this.featuredIndex % this.items.length) + this.items.length) % this.items.length;
-    return this.items[safe];
+  onScroll(): void {
+    this.detectCurrentSection();
   }
 
   nextFeatured(): void {
-    if (!this.items.length) return;
-    this.featuredIndex = (this.featuredIndex + 1) % this.items.length;
+    const len = this.items().length;
+    if (!len) return;
+    this.featuredIndex.update((i) => (i + 1) % len);
   }
 
   prevFeatured(): void {
-    if (!this.items.length) return;
-    this.featuredIndex = (this.featuredIndex - 1 + this.items.length) % this.items.length;
+    const len = this.items().length;
+    if (!len) return;
+    this.featuredIndex.update((i) => (i - 1 + len) % len);
   }
 
-  scrollToSection(event: Event, sectionId: 'menu' | 'offers' | 'quality' | 'app' | 'contact'): void {
+  scrollToSection(
+    event: Event,
+    sectionId: 'menu' | 'offers' | 'quality' | 'app' | 'contact',
+  ): void {
     event.preventDefault();
     const target = document.getElementById(sectionId);
     if (!target) return;
-
-    this.currentSection = sectionId;
+    this.currentSection.set(sectionId);
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -374,7 +402,7 @@ export class GrillPublicComponent implements OnInit {
     const cart = JSON.parse(localStorage.getItem(this.cartStorageKey) || '[]');
     const safeCart = Array.isArray(cart) ? cart : [];
     const existing = safeCart.find(
-      (line: any) => line.id === item.id && line.kind === item.kind,
+      (line: { id: string; kind: string }) => line.id === item.id && line.kind === item.kind,
     );
 
     if (existing) {
@@ -391,9 +419,16 @@ export class GrillPublicComponent implements OnInit {
     }
 
     localStorage.setItem(this.cartStorageKey, JSON.stringify(safeCart));
-    this.notice = `${item.title} ajouté au panier grill.`;
-    setTimeout(() => (this.notice = null), 1600);
+    this.cartCount.set(this.readCartCount());
+    this.notice.set(`${item.title} ajouté au panier grill.`);
+    setTimeout(() => this.notice.set(null), 1600);
     this.router.navigate(['/grill/checkout']);
+  }
+
+  onItemImageError(id: string): void {
+    this.items.update((arr) =>
+      arr.map((item) => (item.id === id ? { ...item, imageUrl: '' } : item)),
+    );
   }
 
   stars(rating: number): number[] {
@@ -401,29 +436,41 @@ export class GrillPublicComponent implements OnInit {
     return [1, 2, 3, 4, 5].map((i) => (i <= rounded ? 1 : 0));
   }
 
+  private readCartCount(): number {
+    const cart = JSON.parse(localStorage.getItem(this.cartStorageKey) || '[]');
+    return (Array.isArray(cart) ? cart : []).reduce(
+      (sum: number, item: { qty?: number }) => sum + Number(item.qty || 0),
+      0,
+    );
+  }
+
   private loadCatalog(): void {
-    this.loading = true;
-    this.error = null;
+    this.loading.set(true);
+    this.error.set(null);
 
     forkJoin({
       products: this.api.get<unknown[]>('/grill/products').pipe(catchError(() => of([]))),
       packs: this.api.get<GrillPack[]>('/grill/menu-packs').pipe(catchError(() => of([]))),
     }).subscribe({
       next: ({ products, packs }) => {
-        const normalizedProducts = (Array.isArray(products) ? products : []).map((item: any) => ({
-          id: String(item?.id ?? ''),
-          kind: 'product' as const,
-          title: String(item?.title ?? 'Produit grill'),
-          description: String(item?.description ?? ''),
-          category: item?.category ? String(item.category) : 'Grill',
-          price: Number(item?.price ?? 0),
-          currency: String(item?.currency ?? 'XAF'),
-          images: Array.isArray(item?.images) ? item.images : [],
-          imageUrl: buildMediaUrl(item?.images?.[0] || item?.imageUrl || ''),
-          isAvailable: item?.isAvailable !== false,
-          avgRating: Number(item?.avgRating ?? 0),
-          reviewsCount: Number(item?.reviewsCount ?? 0),
-        }));
+        const normalizedProducts = (Array.isArray(products) ? (products as Record<string, unknown>[]) : []).map(
+          (item) => ({
+            id: String(item?.['id'] ?? ''),
+            kind: 'product' as const,
+            title: String(item?.['title'] ?? 'Produit grill'),
+            description: String(item?.['description'] ?? ''),
+            category: item?.['category'] ? String(item['category']) : 'Grill',
+            price: Number(item?.['price'] ?? 0),
+            currency: String(item?.['currency'] ?? 'XAF'),
+            images: Array.isArray(item?.['images']) ? (item['images'] as string[]) : [],
+            imageUrl: buildMediaUrl(
+              String((item?.['images'] as string[])?.[0] || item?.['imageUrl'] || ''),
+            ),
+            isAvailable: item?.['isAvailable'] !== false,
+            avgRating: Number(item?.['avgRating'] ?? 0),
+            reviewsCount: Number(item?.['reviewsCount'] ?? 0),
+          }),
+        );
 
         const normalizedPacks = (Array.isArray(packs) ? packs : []).map((item: GrillPack) => ({
           id: String(item?.id ?? ''),
@@ -440,16 +487,18 @@ export class GrillPublicComponent implements OnInit {
           reviewsCount: 0,
         }));
 
-        this.items = [...normalizedProducts, ...normalizedPacks].filter((x) => !!x.id);
-        this.loading = false;
+        this.items.set(
+          [...normalizedProducts, ...normalizedPacks].filter((x) => !!x.id),
+        );
+        this.loading.set(false);
 
-        if (!this.items.length) {
-          this.error = 'Aucun produit/menu C\'Grill disponible pour le moment.';
+        if (!this.items().length) {
+          this.error.set("Aucun produit/menu C'Grill disponible pour le moment.");
         }
       },
       error: () => {
-        this.error = 'Impossible de charger les produits grill.';
-        this.loading = false;
+        this.error.set('Impossible de charger les produits grill.');
+        this.loading.set(false);
       },
     });
   }
@@ -464,7 +513,7 @@ export class GrillPublicComponent implements OnInit {
     ];
 
     const offset = 130;
-    let active: typeof sectionIds[number] = 'menu';
+    let active: (typeof sectionIds)[number] = 'menu';
 
     for (const id of sectionIds) {
       const el = document.getElementById(id);
@@ -475,6 +524,6 @@ export class GrillPublicComponent implements OnInit {
       }
     }
 
-    this.currentSection = active;
+    this.currentSection.set(active);
   }
 }

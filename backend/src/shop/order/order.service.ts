@@ -17,6 +17,7 @@ import { PromotionService } from '../promotion/promotion.service';
 import { PromotionType } from '../promotion/promotion-type.enum';
 import { ProductService } from '../product/product.service';
 import { CexpressService } from 'src/express/express.service';
+import { RelayPointService } from '../relay-point/relay-point.service';
 import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 
@@ -40,6 +41,7 @@ export class OrderService {
     private readonly cexpressService: CexpressService,
     private readonly promotionService: PromotionService,
     private readonly productService: ProductService,
+    private readonly relayPointService: RelayPointService,
   ) {}
 
   async checkout(
@@ -50,6 +52,7 @@ export class OrderService {
       promoCode?: string;
       cartItemIds?: string[];
       deliveryOption?: DeliveryOption;
+      relayPointId?: string;
     },
   ): Promise<Order> {
     const cart = await this.cartRepo.findOne({
@@ -106,7 +109,7 @@ export class OrderService {
       pricedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
     );
 
-    const deliveryOption = payload.deliveryOption ?? DeliveryOption.OTHER;
+    const deliveryOption = payload.deliveryOption ?? DeliveryOption.FREE;
     let promoDiscount = 0;
     let promoCode: string | undefined;
 
@@ -149,14 +152,34 @@ export class OrderService {
     );
 
     let deliveryFee = 0;
+    let relayPointId: string | undefined;
 
     if (deliveryOption === DeliveryOption.CEXPRESS) {
+      if (!payload.deliveryAddress) {
+        throw new BadRequestException(
+          "Une adresse de livraison est requise pour C'Express",
+        );
+      }
       const quote = await this.cexpressService.quoteDelivery({
         deliveryAddress: payload.deliveryAddress,
         orderTotal: discountedSubtotal,
       });
-
       deliveryFee = Number(quote.fee ?? 0);
+    } else if (deliveryOption === DeliveryOption.RELAY) {
+      if (!payload.relayPointId) {
+        throw new BadRequestException(
+          'Veuillez sélectionner un point relais',
+        );
+      }
+      // Valide que le point relais existe et est actif
+      await this.relayPointService.findOne(payload.relayPointId);
+      relayPointId = payload.relayPointId;
+      deliveryFee = 0;
+    } else if (deliveryOption === DeliveryOption.WAREHOUSE) {
+      deliveryFee = 0;
+    } else {
+      // FREE
+      deliveryFee = 0;
     }
 
     const order = this.orderRepo.create({
@@ -168,6 +191,7 @@ export class OrderService {
       deliveryFee,
       status: OrderStatus.PENDING,
       deliveryAddress: payload.deliveryAddress,
+      relayPointId,
       note: payload.note,
       items: pricedItems.map((item) =>
         this.itemRepo.create({
@@ -244,18 +268,21 @@ export class OrderService {
     try {
       await this.updateStatus(event.referenceId, OrderStatus.PAID);
 
-      // Créer livraison C'Express si option CEXPRESS choisie
       const order = await this.findOne(event.referenceId);
-      if (
-        order.deliveryOption === DeliveryOption.CEXPRESS &&
-        order.deliveryAddress
-      ) {
+
+      if (order.deliveryOption === DeliveryOption.CEXPRESS && order.deliveryAddress) {
         const delivery = await this.cexpressService.createDelivery({
           orderId: order.id,
           dropoff: order.deliveryAddress,
           amountToCollect: 0,
         });
-        this.logger.log(`[C'EXPRESS] Livraison créée pour commande ${order.id}: ${delivery.deliveryId}`);
+        this.logger.log(`[CEXPRESS] Livraison créée pour commande ${order.id}: ${delivery.deliveryId}`);
+      } else if (order.deliveryOption === DeliveryOption.RELAY) {
+        this.logger.log(`[RELAY] Commande ${order.id} — retrait point relais: ${order.relayPointId ?? 'N/A'}`);
+      } else if (order.deliveryOption === DeliveryOption.WAREHOUSE) {
+        this.logger.log(`[WAREHOUSE] Commande ${order.id} — retrait en entrepôt`);
+      } else {
+        this.logger.log(`[FREE] Commande ${order.id} — livraison gratuite`);
       }
     } catch (err) {
       this.logger.error(

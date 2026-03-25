@@ -1,40 +1,55 @@
 <div class="admin-layout">
   <!-- Sidebar -->
-  <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
+  <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
     <div class="sidebar-header">
-      <h2 *ngIf="!sidebarCollapsed">C'EMPIRE</h2>
-      <button class="toggle-btn" (click)="toggleSidebar()">
-        {{ sidebarCollapsed ? '☰' : '✕' }}
+      @if (!sidebarCollapsed()) {
+        <h2>C'EMPIRE</h2>
+      }
+      <button
+        class="toggle-btn"
+        (click)="toggleSidebar()"
+        [attr.aria-label]="sidebarCollapsed() ? 'Ouvrir le menu' : 'Réduire le menu'"
+        [attr.aria-expanded]="!sidebarCollapsed()"
+      >
+        {{ sidebarCollapsed() ? '☰' : '✕' }}
       </button>
     </div>
 
-    <nav class="sidebar-nav">
-      <a *ngFor="let item of getVisibleNavItems()" 
-         [routerLink]="item.route" 
-         routerLinkActive="active"
-         [routerLinkActiveOptions]="{exact: false}"
-         class="nav-link">
-        <span class="nav-icon">{{ item.icon }}</span>
-        <span class="nav-label" *ngIf="!sidebarCollapsed">{{ item.label }}</span>
-      </a>
+    <nav class="sidebar-nav" aria-label="Navigation admin">
+      @for (item of visibleNavItems; track item.route) {
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: false }"
+          class="nav-link"
+          [attr.title]="sidebarCollapsed() ? item.label : null"
+        >
+          <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
+          @if (!sidebarCollapsed()) {
+            <span class="nav-label">{{ item.label }}</span>
+          }
+        </a>
+      }
     </nav>
 
-    <div class="sidebar-footer" *ngIf="!sidebarCollapsed">
-      <div class="user-info">
-        <div class="user-avatar">{{ (currentUser?.email || 'U').charAt(0).toUpperCase() }}</div>
-        <div class="user-details">
-          <div class="user-email">{{ currentUser?.email }}</div>
-          <div class="user-role">{{ isSuperAdmin ? 'Super Admin' : 'Admin' }}</div>
+    @if (!sidebarCollapsed()) {
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" aria-hidden="true">{{ userInitial }}</div>
+          <div class="user-details">
+            <div class="user-email">{{ currentUser?.email }}</div>
+            <div class="user-role">{{ isSuperAdmin ? 'Super Admin' : 'Admin' }}</div>
+          </div>
         </div>
+        <button class="logout-btn" (click)="logout()">
+          🚪 Déconnexion
+        </button>
       </div>
-      <button class="logout-btn" (click)="logout()">
-        🚪 Déconnexion
-      </button>
-    </div>
+    }
   </aside>
 
   <!-- Main Content -->
-  <main class="main-content page-enter" [class.expanded]="sidebarCollapsed">
-    <router-outlet></router-outlet>
+  <main class="main-content" [class.expanded]="sidebarCollapsed()">
+    <router-outlet />
   </main>
 </div>

@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { CurrencyXafPipe } from '../../shared/pipes/currency-xaf.pipe';
 
 type TodoServiceItem = {
   id: string;
@@ -20,8 +21,8 @@ type TodoServiceItem = {
 
 @Component({
   selector: 'app-todo-public',
-  standalone: true,
-  imports: [CommonModule, MatIconModule, RouterLink, FormsModule],
+  imports: [MatIconModule, RouterLink, FormsModule, DecimalPipe, CurrencyXafPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="todo-page page-enter">
       <header class="hero app-shell-card">
@@ -30,22 +31,23 @@ type TodoServiceItem = {
           <h1>Deleguez vos taches du quotidien et gagnez du temps chaque semaine</h1>
           <p>Maison, administratif, lifestyle ou urgence: un seul espace pour planifier, suivre et valider vos missions.</p>
           <div class="hero-cta">
-            <a class="btn solid" [routerLink]="[planRoute]">Planifier une mission</a>
-            <a class="btn ghost" [routerLink]="[planRoute]">Voir mes demandes</a>
+            <a class="btn solid" [routerLink]="[planRoute()]">Planifier une mission</a>
+            <a class="btn ghost" [routerLink]="[planRoute()]">Voir mes demandes</a>
           </div>
         </div>
       </header>
 
       <section class="quick-pills app-shell-card">
-        <button type="button" [class.active]="selectedCategory === 'all'" (click)="selectedCategory = 'all'">Tous</button>
-        <button
-          type="button"
-          *ngFor="let category of categories"
-          [class.active]="selectedCategory === category"
-          (click)="selectedCategory = category"
-        >
-          {{ category }}
-        </button>
+        <button type="button" [class.active]="selectedCategory() === 'all'" (click)="selectedCategory.set('all')">Tous</button>
+        @for (category of categories(); track category) {
+          <button
+            type="button"
+            [class.active]="selectedCategory() === category"
+            (click)="selectedCategory.set(category)"
+          >
+            {{ category }}
+          </button>
+        }
       </section>
 
       <section class="simulator app-shell-card">
@@ -56,15 +58,15 @@ type TodoServiceItem = {
         <div class="sim-grid">
           <label>
             Duree estimee (heures)
-            <input type="number" min="1" [(ngModel)]="simHours" />
+            <input type="number" min="1" [ngModel]="simHours()" (ngModelChange)="simHours.set($event)" />
           </label>
           <label>
             Frequence (missions/mois)
-            <input type="number" min="1" [(ngModel)]="simFrequency" />
+            <input type="number" min="1" [ngModel]="simFrequency()" (ngModelChange)="simFrequency.set($event)" />
           </label>
           <label>
             Niveau d'urgence
-            <select [(ngModel)]="simUrgency">
+            <select [ngModel]="simUrgency()" (ngModelChange)="simUrgency.set($event)">
               <option value="normal">Normal</option>
               <option value="priority">Prioritaire</option>
               <option value="critical">Critique</option>
@@ -72,7 +74,7 @@ type TodoServiceItem = {
           </label>
           <div class="estimate">
             <span>Budget estime</span>
-            <strong>{{ estimatedBudget | currency:'XAF' }}</strong>
+            <strong>{{ estimatedBudget() | currencyXaf }}</strong>
           </div>
         </div>
       </section>
@@ -83,37 +85,52 @@ type TodoServiceItem = {
             <h2>Services populaires C'To-Do</h2>
             <p>Des prestations pretes a l'emploi pour particuliers et pros.</p>
           </div>
-          <input type="text" placeholder="Rechercher un service..." [(ngModel)]="searchTerm" />
+          <input type="text" placeholder="Rechercher un service..." [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" />
         </div>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
-        <div class="loading" *ngIf="loading">Chargement des services C'To-Do...</div>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
+        @if (loading()) {
+          <div class="loading">Chargement des services C'To-Do...</div>
+        }
 
-        <section class="grid" *ngIf="!loading">
-          <article class="card app-shell-card" *ngFor="let item of filteredServices">
-            <div class="icon-wrap">
-              <mat-icon>task_alt</mat-icon>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-            <div class="meta">
-              <span>{{ item.category || 'Service standard' }}</span>
-              <strong>{{ item.basePrice | currency:'XAF' }}</strong>
-            </div>
-            <small class="eta" *ngIf="item.eta">Delai moyen: {{ item.eta }}</small>
-            <div class="rating" *ngIf="(item.reviewsCount || 0) > 0; else noRating">
-              <span class="stars">
-                <mat-icon *ngFor="let s of stars(item.avgRating || 0)">{{ s ? 'star' : 'star_border' }}</mat-icon>
-              </span>
-              <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
-              <span class="count">({{ item.reviewsCount }} avis)</span>
-            </div>
-            <ng-template #noRating><p class="no-rating">Pas encore note</p></ng-template>
-            <div class="actions">
-              <a [routerLink]="[planRoute]">Planifier</a>
-            </div>
-          </article>
-        </section>
+        @if (!loading()) {
+          <section class="grid">
+            @for (item of filteredServices(); track item.id) {
+              <article class="card app-shell-card">
+                <div class="icon-wrap">
+                  <mat-icon>task_alt</mat-icon>
+                </div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description }}</p>
+                <div class="meta">
+                  <span>{{ item.category || 'Service standard' }}</span>
+                  <strong>{{ item.basePrice | currencyXaf }}</strong>
+                </div>
+                @if (item.eta) {
+                  <small class="eta">Delai moyen: {{ item.eta }}</small>
+                }
+                @if ((item.reviewsCount || 0) > 0) {
+                  <div class="rating">
+                    <span class="stars">
+                      @for (s of stars(item.avgRating || 0); track $index) {
+                        <mat-icon>{{ s ? 'star' : 'star_border' }}</mat-icon>
+                      }
+                    </span>
+                    <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
+                    <span class="count">({{ item.reviewsCount }} avis)</span>
+                  </div>
+                } @else {
+                  <p class="no-rating">Pas encore note</p>
+                }
+                <div class="actions">
+                  <a [routerLink]="[planRoute()]">Planifier</a>
+                </div>
+              </article>
+            }
+          </section>
+        }
       </section>
 
       <section class="workflow app-shell-card">
@@ -181,49 +198,35 @@ type TodoServiceItem = {
   `],
 })
 export class TodoPublicComponent implements OnInit {
-  services: TodoServiceItem[] = [];
-  selectedCategory = 'all';
-  searchTerm = '';
-  simHours = 2;
-  simFrequency = 4;
-  simUrgency: 'normal' | 'priority' | 'critical' = 'normal';
-  loading = true;
-  error: string | null = null;
-  planRoute = '/auth/signin';
+  private readonly api = inject(ApiService);
+  private readonly authService = inject(AuthService);
 
-  constructor(
-    private readonly api: ApiService,
-    private readonly authService: AuthService,
-  ) {}
+  readonly services = signal<TodoServiceItem[]>([]);
+  readonly selectedCategory = signal('all');
+  readonly searchTerm = signal('');
+  readonly simHours = signal(2);
+  readonly simFrequency = signal(4);
+  readonly simUrgency = signal<'normal' | 'priority' | 'critical'>('normal');
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly planRoute = signal('/auth/signin');
 
-  ngOnInit(): void {
-    this.planRoute = this.authService.isAuthenticated()
-      ? '/client/todo/requests'
-      : '/auth/signin';
+  readonly categories = computed(() => {
+    const set = new Set(
+      this.services()
+        .map((item) => String(item.category || '').trim())
+        .filter(Boolean),
+    );
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  });
 
-    this.api.get<TodoServiceItem[]>('/todo').subscribe({
-      next: (data) => {
-        this.services = Array.isArray(data) ? data : [];
-        this.loading = false;
-      },
-      error: () => {
-        this.error = "Impossible de charger les services C'Todo.";
-        this.loading = false;
-      },
-    });
-  }
-
-  stars(rating: number): number[] {
-    const rounded = Math.round(Number(rating || 0));
-    return [1, 2, 3, 4, 5].map((i) => (i <= rounded ? 1 : 0));
-  }
-
-  get filteredServices(): TodoServiceItem[] {
-    const q = this.searchTerm.trim().toLowerCase();
-    return this.services.filter((item) => {
+  readonly filteredServices = computed(() => {
+    const q = this.searchTerm().trim().toLowerCase();
+    const cat = this.selectedCategory();
+    return this.services().filter((item) => {
       const categoryOk =
-        this.selectedCategory === 'all' ||
-        String(item.category || '').toLowerCase() === this.selectedCategory.toLowerCase();
+        cat === 'all' ||
+        String(item.category || '').toLowerCase() === cat.toLowerCase();
       if (!categoryOk) return false;
       if (!q) return true;
       return (
@@ -231,19 +234,35 @@ export class TodoPublicComponent implements OnInit {
         String(item.description || '').toLowerCase().includes(q)
       );
     });
-  }
+  });
 
-  get categories(): string[] {
-    const set = new Set(
-      this.services
-        .map((item) => String(item.category || '').trim())
-        .filter(Boolean),
+  readonly estimatedBudget = computed(() => {
+    const urgency = this.simUrgency();
+    const urgencyFactor = urgency === 'critical' ? 1.5 : urgency === 'priority' ? 1.25 : 1;
+    return Math.round(
+      Number(this.simHours() || 0) * 3500 * Number(this.simFrequency() || 0) * urgencyFactor,
     );
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  });
+
+  ngOnInit(): void {
+    this.planRoute.set(
+      this.authService.isAuthenticated() ? '/client/todo/requests' : '/auth/signin',
+    );
+
+    this.api.get<TodoServiceItem[]>('/todo').subscribe({
+      next: (data) => {
+        this.services.set(Array.isArray(data) ? data : []);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set("Impossible de charger les services C'Todo.");
+        this.loading.set(false);
+      },
+    });
   }
 
-  get estimatedBudget(): number {
-    const urgencyFactor = this.simUrgency === 'critical' ? 1.5 : this.simUrgency === 'priority' ? 1.25 : 1;
-    return Math.round(Number(this.simHours || 0) * 3500 * Number(this.simFrequency || 0) * urgencyFactor);
+  stars(rating: number): number[] {
+    const rounded = Math.round(Number(rating || 0));
+    return [1, 2, 3, 4, 5].map((i) => (i <= rounded ? 1 : 0));
   }
 }

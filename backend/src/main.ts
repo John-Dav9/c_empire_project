@@ -19,6 +19,27 @@ async function bootstrap() {
 
   const isProduction = process.env.NODE_ENV === 'production';
 
+  // ✅ CORS en premier — doit précéder tous les autres middlewares
+  app.enableCors({
+    origin: isProduction
+      ? frontendOrigins
+      : (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          // En dev : accepter localhost/127.0.0.1 sur n'importe quel port, plus les origines configurées
+          if (
+            !origin ||
+            /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+            frontendOrigins.includes(origin)
+          ) {
+            callback(null, true);
+          } else {
+            callback(new Error(`CORS: origine non autorisée — ${origin}`));
+          }
+        },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
   if (!isProduction) {
     app.use((req: Request, _res: Response, next: NextFunction) => {
       console.log(`${req.method} ${req.url}`);
@@ -52,14 +73,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
-  // ✅ CORS
-  app.enableCors({
-    origin: frontendOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
 
   // ✅ Swagger/OpenAPI (désactivé en production)
   if (!isProduction) {

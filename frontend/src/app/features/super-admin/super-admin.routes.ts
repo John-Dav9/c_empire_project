@@ -22,6 +22,7 @@ import { ExpressCouriersManagementComponent } from './express/express-couriers-m
 import { ExpressImportExportManagementComponent } from './express/express-import-export-management.component';
 import { EventsManagementComponent } from './events/events-management.component';
 import { EventsBookingsManagementComponent } from './events/events-bookings-management.component';
+import { TasksManagementComponent } from './tasks/tasks-management.component';
 
 export const superAdminRoutes: Routes = [
   {
@@ -46,6 +47,7 @@ export const superAdminRoutes: Routes = [
       
       // C'Todo
       { path: 'todo/services', component: TodoServicesComponent },
+      { path: 'tasks', component: TasksManagementComponent },
 
       // C'Events
       { path: 'events/catalog', component: EventsManagementComponent },

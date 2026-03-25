@@ -1,15 +1,16 @@
-import { ChangeDetectorRef, Component, NgZone, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
+import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import { buildMediaUrl } from '../../../core/config/api.config';
 import { AuthService } from '../../../core/services/auth.service';
 import { ShopCartService } from '../../../core/services/shop-cart.service';
+import { CurrencyXafPipe } from '../../../shared/pipes/currency-xaf.pipe';
 
 interface Product {
   id: string;
@@ -34,40 +35,57 @@ interface ProductListResponse {
 
 @Component({
   selector: 'app-product-list',
-  standalone: true,
   imports: [
-    CommonModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
+    DecimalPipe,
+    CurrencyXafPipe,
   ],
   templateUrl: './product-list.component.html',
-  styleUrls: ['./product-list.component.scss']
+  styleUrls: ['./product-list.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProductListComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly shopCartService = inject(ShopCartService);
   private readonly selectedProductStorageKey = 'shop_selected_product';
 
-  products: Product[] = [];
-  filteredProducts: Product[] = [];
-  // Etat UI du filtre catégorie et recherche texte.
-  selectedCategory = 'all';
-  searchTerm = '';
-  loading = true;
-  error: string | null = null;
-  notice: string | null = null;
-  cartCount = 0;
-  cartSubtotal = 0;
+  readonly products = signal<Product[]>([]);
+  readonly selectedCategory = signal('all');
+  readonly searchTerm = signal('');
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly notice = signal<string | null>(null);
+  readonly cartCount = signal(0);
+  readonly cartSubtotal = signal(0);
 
-  constructor(
-    private api: ApiService,
-    private router: Router,
-    private zone: NgZone,
-    private cdr: ChangeDetectorRef,
-    private authService: AuthService,
-    private shopCartService: ShopCartService,
-  ) {}
+  readonly categories = computed(() => {
+    const values = this.products()
+      .map((p) => (p.category || '').trim())
+      .filter((c) => c.length > 0);
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  });
+
+  readonly filteredProducts = computed(() => {
+    const search = this.searchTerm().trim().toLowerCase();
+    const cat = this.selectedCategory();
+    return this.products().filter((product) => {
+      const categoryOk =
+        cat === 'all' ||
+        (product.category || '').toLowerCase() === cat.toLowerCase();
+      if (!categoryOk) return false;
+      if (!search) return true;
+      return (
+        product.name.toLowerCase().includes(search) ||
+        (product.sku || '').toLowerCase().includes(search)
+      );
+    });
+  });
 
   ngOnInit(): void {
     this.loadProducts();
@@ -75,9 +93,9 @@ export class ProductListComponent implements OnInit {
   }
 
   loadProducts(): void {
-    this.loading = true;
-    this.error = null;
-    this.notice = null;
+    this.loading.set(true);
+    this.error.set(null);
+    this.notice.set(null);
     this.api
       .get<Product[] | ProductListResponse>('/cshop/products', {
         page: 1,
@@ -85,22 +103,15 @@ export class ProductListComponent implements OnInit {
       })
       .subscribe({
         next: (data) => {
-          this.zone.run(() => {
-            this.products = this.normalizeProducts(data).filter(
-              (p) => p.isActive !== false,
-            );
-            this.applyFilters();
-            this.loading = false;
-            this.cdr.detectChanges();
-          });
+          this.products.set(
+            this.normalizeProducts(data).filter((p) => p.isActive !== false),
+          );
+          this.loading.set(false);
         },
-        error: (err) => {
-          this.zone.run(() => {
-            this.error = 'Erreur lors du chargement des produits';
-            this.loading = false;
-            this.cdr.detectChanges();
-          });
+        error: (err: unknown) => {
           console.error(err);
+          this.error.set('Erreur lors du chargement des produits');
+          this.loading.set(false);
         },
       });
   }
@@ -115,126 +126,95 @@ export class ProductListComponent implements OnInit {
 
     this.shopCartService.addItem(product.id, 1).subscribe({
       next: (cart) => {
-        this.cartCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-        this.cartSubtotal = cart.totalAmount;
-        this.notice = `${product.name} ajouté au panier`;
-        setTimeout(() => {
-          this.notice = null;
-        }, 1800);
+        this.cartCount.set(cart.items.reduce((sum, item) => sum + item.quantity, 0));
+        this.cartSubtotal.set(cart.totalAmount);
+        this.notice.set(`${product.name} ajouté au panier`);
+        setTimeout(() => this.notice.set(null), 1800);
       },
-      error: (err) => {
-        this.error = err?.error?.message || "Impossible d'ajouter ce produit au panier.";
+      error: (err: { error?: { message?: string } }) => {
+        this.error.set(err?.error?.message || "Impossible d'ajouter ce produit au panier.");
       },
     });
   }
 
-  onImageError(product: Product): void {
-    product.image = undefined;
+  onImageError(productId: string): void {
+    this.products.update((arr) =>
+      arr.map((p) => (p.id === productId ? { ...p, image: undefined } : p)),
+    );
   }
 
   canOpenDetails(product: Product): boolean {
     return !!String(product.id || '').trim();
   }
 
-  get categories(): string[] {
-    const values = this.products
-      .map((p) => (p.category || '').trim())
-      .filter((c) => c.length > 0);
-    return Array.from(new Set(values)).sort((a, b) =>
-      a.localeCompare(b),
-    );
-  }
-
   setCategory(category: string): void {
-    // Active un filtre catégorie.
-    this.selectedCategory = category;
-    this.applyFilters();
-  }
-
-  onSearchInput(value: string): void {
-    this.searchTerm = value;
-    this.applyFilters();
-  }
-
-  trackByProductId(_: number, product: Product): string {
-    return product.id;
+    this.selectedCategory.set(category);
   }
 
   openDetails(product: Product): void {
     if (!this.canOpenDetails(product)) return;
-    sessionStorage.setItem(
-      this.selectedProductStorageKey,
-      JSON.stringify(product),
-    );
-    this.router.navigate(['/shop/product', product.id]);
+    sessionStorage.setItem(this.selectedProductStorageKey, JSON.stringify(product));
+    void this.router.navigate(['/shop/product', product.id]);
   }
 
   stars(rating: number): number[] {
-    // Helper affichage des étoiles.
     const rounded = Math.round(Number(rating || 0));
     return [1, 2, 3, 4, 5].map((i) => (i <= rounded ? 1 : 0));
   }
 
+  truncate(text: string, max = 100): string {
+    return text.length > max ? text.slice(0, max) + '...' : text;
+  }
+
   goToCart(): void {
-    this.router.navigate(['/shop/cart']);
+    void this.router.navigate(['/shop/cart']);
   }
 
   private normalizeProducts(data: Product[] | ProductListResponse): Product[] {
     const raw = Array.isArray(data)
       ? data
-      : ((data as any)?.data ??
-          (data as any)?.items ??
-          (data as any)?.results ??
+      : (((data as unknown) as Record<string, unknown>)?.['data'] ??
+          ((data as unknown) as Record<string, unknown>)?.['items'] ??
+          ((data as unknown) as Record<string, unknown>)?.['results'] ??
           []);
-    return raw
-      .map((product: any) => ({
-      id: String(product.id ?? product._id ?? '').trim(),
-      name: product.name,
-      description: product.description || '',
-      isActive: product.isActive,
-      price: Number(product.finalPrice ?? product.price ?? 0),
-      image: buildMediaUrl(product.image ?? product.imageUrl ?? product.images?.[0]),
-      category: product.category ?? product.categories?.[0],
-      sku: product.sku ?? '',
-      stock: Number(product.stock ?? 0),
-      avgRating: Number(product.avgRating ?? 0),
-      reviewsCount: Number(product.reviewsCount ?? 0),
+    return (raw as Record<string, unknown>[])
+      .map((product) => ({
+        id: String(product['id'] ?? product['_id'] ?? '').trim(),
+        name: String(product['name'] ?? ''),
+        description: String(product['description'] ?? ''),
+        isActive: product['isActive'] as boolean | undefined,
+        price: Number(product['finalPrice'] ?? product['price'] ?? 0),
+        image: buildMediaUrl(
+          String(
+            product['image'] ??
+            product['imageUrl'] ??
+            (product['images'] as string[])?.[0] ??
+            '',
+          ),
+        ),
+        category: product['category'] != null
+          ? String(product['category'])
+          : (product['categories'] as string[])?.[0],
+        sku: String(product['sku'] ?? ''),
+        stock: Number(product['stock'] ?? 0),
+        avgRating: Number(product['avgRating'] ?? 0),
+        reviewsCount: Number(product['reviewsCount'] ?? 0),
       }))
-      .filter((product: Product) => product.id.length > 0);
-  }
-
-  private applyFilters(): void {
-    const search = this.searchTerm.trim().toLowerCase();
-    this.filteredProducts = this.products.filter((product) => {
-      const categoryOk =
-        this.selectedCategory === 'all' ||
-        (product.category || '').toLowerCase() === this.selectedCategory.toLowerCase();
-
-      if (!categoryOk) return false;
-      if (!search) return true;
-
-      return (
-        product.name.toLowerCase().includes(search) ||
-        (product.sku || '').toLowerCase().includes(search)
-      );
-    });
+      .filter((product) => product.id.length > 0);
   }
 
   private loadCartSummary(): void {
     if (!this.authService.isAuthenticated()) {
-      this.cartCount = 0;
-      this.cartSubtotal = 0;
       return;
     }
-
     this.shopCartService.getCart().subscribe({
       next: (cart) => {
-        this.cartCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-        this.cartSubtotal = cart.totalAmount;
+        this.cartCount.set(cart.items.reduce((sum, item) => sum + item.quantity, 0));
+        this.cartSubtotal.set(cart.totalAmount);
       },
       error: () => {
-        this.cartCount = 0;
-        this.cartSubtotal = 0;
+        this.cartCount.set(0);
+        this.cartSubtotal.set(0);
       },
     });
   }

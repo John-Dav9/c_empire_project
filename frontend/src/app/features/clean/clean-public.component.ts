@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
+import { DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { buildMediaUrl } from '../../core/config/api.config';
+import { CurrencyXafPipe } from '../../shared/pipes/currency-xaf.pipe';
 
 type CleanService = {
   id: string;
@@ -20,8 +21,8 @@ type CleanService = {
 
 @Component({
   selector: 'app-clean-public',
-  standalone: true,
-  imports: [CommonModule, MatIconModule, RouterLink],
+  imports: [MatIconModule, RouterLink, DecimalPipe, CurrencyXafPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="clean-page page-enter">
       <header class="clean-subnav app-shell-card">
@@ -130,46 +131,57 @@ type CleanService = {
           <a [routerLink]="['/clean/book']">Reserver un service</a>
         </div>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
-        <div class="loading" *ngIf="loading">Chargement des services...</div>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
+        @if (loading()) {
+          <div class="loading">Chargement des services...</div>
+        }
 
-        <div class="grid" *ngIf="!loading">
-          <article class="card" *ngFor="let item of services">
-            <div class="img">
-              <img
-                *ngIf="item.imageUrl; else fallback"
-                [src]="item.imageUrl"
-                [alt]="item.title"
-                (error)="item.imageUrl = ''"
-              />
-              <ng-template #fallback>
-                <div class="fallback">
-                  <mat-icon>cleaning_services</mat-icon>
-                  <span>Service C'Clean</span>
+        @if (!loading()) {
+          <div class="grid">
+            @for (item of services(); track item.id) {
+              <article class="card">
+                <div class="img">
+                  @if (item.imageUrl) {
+                    <img
+                      [src]="item.imageUrl"
+                      [alt]="item.title"
+                      (error)="onServiceImageError(item.id)"
+                    />
+                  } @else {
+                    <div class="fallback">
+                      <mat-icon>cleaning_services</mat-icon>
+                      <span>Service C'Clean</span>
+                    </div>
+                  }
                 </div>
-              </ng-template>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description || "Service professionnel C'Clean." }}</p>
-            <div class="meta">
-              <span>{{ item.type }}</span>
-              <strong>{{ item.basePrice | currency:'XOF' }}</strong>
-            </div>
-            <div class="rating" *ngIf="(item.reviewsCount || 0) > 0; else noRating">
-              <span class="stars">
-                <mat-icon *ngFor="let s of stars(item.avgRating || 0)">
-                  {{ s ? 'star' : 'star_border' }}
-                </mat-icon>
-              </span>
-              <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
-              <span class="count">({{ item.reviewsCount }} avis)</span>
-            </div>
-            <ng-template #noRating><p class="no-rating">Pas encore note</p></ng-template>
-            <div class="actions">
-              <a [routerLink]="['/clean/book']" [queryParams]="{ serviceId: item.id, serviceTitle: item.title, amount: item.basePrice }">Reserver</a>
-            </div>
-          </article>
-        </div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description || "Service professionnel C'Clean." }}</p>
+                <div class="meta">
+                  <span>{{ item.type }}</span>
+                  <strong>{{ item.basePrice | currencyXaf }}</strong>
+                </div>
+                @if ((item.reviewsCount || 0) > 0) {
+                  <div class="rating">
+                    <span class="stars">
+                      @for (s of stars(item.avgRating || 0); track $index) {
+                        <mat-icon>{{ s ? 'star' : 'star_border' }}</mat-icon>
+                      }
+                    </span>
+                    <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
+                    <span class="count">({{ item.reviewsCount }} avis)</span>
+                  </div>
+                } @else {
+                  <p class="no-rating">Pas encore note</p>
+                }
+                <div class="actions">
+                  <a [routerLink]="['/clean/book']" [queryParams]="{ serviceId: item.id, serviceTitle: item.title, amount: item.basePrice }">Reserver</a>
+                </div>
+              </article>
+            }
+          </div>
+        }
       </section>
 
       <section class="contact app-shell-card" id="contact">
@@ -438,26 +450,34 @@ type CleanService = {
   `],
 })
 export class CleanPublicComponent implements OnInit {
-  services: CleanService[] = [];
-  loading = true;
-  error: string | null = null;
+  private readonly api = inject(ApiService);
 
-  constructor(private readonly api: ApiService) {}
+  readonly services = signal<CleanService[]>([]);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
     this.api.get<CleanService[]>('/cclean/services').subscribe({
       next: (data) => {
-        this.services = (Array.isArray(data) ? data : []).map((item) => ({
-          ...item,
-          imageUrl: buildMediaUrl(item.imageUrl),
-        }));
-        this.loading = false;
+        this.services.set(
+          (Array.isArray(data) ? data : []).map((item) => ({
+            ...item,
+            imageUrl: buildMediaUrl(item.imageUrl),
+          })),
+        );
+        this.loading.set(false);
       },
       error: () => {
-        this.error = "Impossible de charger les services C'Clean.";
-        this.loading = false;
+        this.error.set("Impossible de charger les services C'Clean.");
+        this.loading.set(false);
       },
     });
+  }
+
+  onServiceImageError(id: string): void {
+    this.services.update((arr) =>
+      arr.map((item) => (item.id === id ? { ...item, imageUrl: '' } : item)),
+    );
   }
 
   stars(rating: number): number[] {

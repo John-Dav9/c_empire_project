@@ -10,7 +10,10 @@ import { ProductListComponent } from './features/shop/product-list/product-list.
 import { ProductDetailComponent } from './features/shop/product-detail/product-detail.component';
 import { CartComponent } from './features/shop/cart/cart.component';
 import { PaymentComponent } from './features/payments/payment/payment.component';
+import { PaymentSuccessComponent } from './features/payments/payment-success/payment-success.component';
+import { PaymentCancelComponent } from './features/payments/payment-cancel/payment-cancel.component';
 import { ContentPageComponent } from './features/content/content-page.component';
+import { NotFoundComponent } from './shared/not-found/not-found.component';
 
 export const routes: Routes = [
   {
@@ -40,7 +43,10 @@ export const routes: Routes = [
         path: 'payments',
         canActivate: [AuthGuard],
         children: [
-          { path: 'checkout', component: PaymentComponent }
+          { path: 'checkout', component: PaymentComponent },
+          { path: 'success', component: PaymentSuccessComponent },
+          { path: 'cancel', component: PaymentCancelComponent },
+          { path: '', redirectTo: 'checkout', pathMatch: 'full' }
         ]
       },
       {
@@ -107,11 +113,12 @@ export const routes: Routes = [
       {
         path: 'super-admin',
         loadChildren: () => import('./features/super-admin/super-admin.routes').then(m => m.superAdminRoutes)
-      }
+      },
+      { path: '404', component: NotFoundComponent }
     ]
   },
   {
     path: '**',
-    redirectTo: ''
+    component: NotFoundComponent
   }
 ];

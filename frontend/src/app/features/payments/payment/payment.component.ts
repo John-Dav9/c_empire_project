@@ -1,37 +1,40 @@
-import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Subscription, forkJoin, map, of, switchMap, throwError, timer } from 'rxjs';
+import { Subscription, map, switchMap, throwError, timer } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { buildMediaUrl } from '../../../core/config/api.config';
 import { ShopCartItem, ShopCartService } from '../../../core/services/shop-cart.service';
+import { CurrencyXafPipe } from '../../../shared/pipes/currency-xaf.pipe';
 
-interface PaymentMethod {
+type DeliveryMode = 'cexpress' | 'free' | 'relay' | 'warehouse';
+
+interface RelayPoint {
   id: string;
   name: string;
-  icon: string;
-  description: string;
-}
-
-interface DeliveryOption {
-  id: 'other' | 'cexpress';
-  name: string;
-  description: string;
-  badge?: string;
+  address: string;
+  city: string;
+  phone?: string;
+  openingHours?: string;
 }
 
 interface PromoValidationResponse {
   valid: boolean;
   code?: string;
-  title?: string;
   type?: 'percent' | 'fixed';
   value?: number;
   productIds?: string[];
@@ -49,482 +52,387 @@ interface InitPaymentResponse {
 
 @Component({
   selector: 'app-payment',
-  standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
+    RouterLink,
     MatCardModule,
-    MatSelectModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    RouterLink
+    CurrencyXafPipe,
   ],
   templateUrl: './payment.component.html',
-  styleUrls: ['./payment.component.scss']
+  styleUrls: ['./payment.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PaymentComponent implements OnInit, OnDestroy {
-  // Form principal (moyen de paiement + option de livraison).
-  formGroup: FormGroup;
-  // Form de facturation/contact utilisé au moment de confirmer la commande.
-  billingForm: FormGroup;
-  amount = 0;
-  cartSubtotal = 0;
-  cartItems = 0;
-  promoCode = '';
-  promoDiscount = 0;
-  promoMessage: string | null = null;
-  promoAppliedCode: string | null = null;
-  promoChecking = false;
-  loading = false;
-  error: string | null = null;
-  success = false;
-  successOrderId: string | null = null;
-  successPaymentRef: string | null = null;
-  pendingPaymentRef: string | null = null;
-  pendingInstructions: string | null = null;
-  pendingInfo: string | null = null;
-  readonly standardDeliveryFee = 5000;
-  readonly cexpressDeliveryFee = 7500;
-  checkoutItems: ShopCartItem[] = [];
+  private readonly api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder);
+  private readonly shopCartService = inject(ShopCartService);
   private readonly checkoutSelectionKey = 'checkoutCartItemIds';
-  private checkoutSelection: string[] = [];
-  private verifyPollingSub?: Subscription;
-  deliveryOptions: DeliveryOption[] = [
+
+  // ── Forms ────────────────────────────────────────────────────────────────
+  readonly formGroup = this.fb.group({
+    method: ['', Validators.required],
+    deliveryMode: ['free' as DeliveryMode, Validators.required],
+  });
+  readonly billingForm = this.fb.group({
+    email: ['', [Validators.required, Validators.email]],
+    phone: ['', Validators.required],
+    address: ['', Validators.required],
+    city: ['', Validators.required],
+  });
+
+  // ── State ────────────────────────────────────────────────────────────────
+  readonly checkoutItems = signal<ShopCartItem[]>([]);
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly success = signal(false);
+  readonly successOrderId = signal<string | null>(null);
+  readonly successPaymentRef = signal<string | null>(null);
+  readonly pendingPaymentRef = signal<string | null>(null);
+  readonly pendingInstructions = signal<string | null>(null);
+  readonly pendingInfo = signal<string | null>(null);
+  readonly promoCode = signal('');
+  readonly promoDiscount = signal(0);
+  readonly promoMessage = signal<string | null>(null);
+  readonly promoAppliedCode = signal<string | null>(null);
+  readonly promoChecking = signal(false);
+  readonly selectedDeliveryMode = signal<DeliveryMode>('free');
+  readonly selectedRelayPointId = signal<string | null>(null);
+  readonly relayPoints = signal<RelayPoint[]>([]);
+  readonly relayPointsLoading = signal(false);
+
+  // ── Computed ─────────────────────────────────────────────────────────────
+  readonly cartSubtotal = computed(() =>
+    this.checkoutItems().reduce(
+      (sum, item) => sum + Number(item.price) * Number(item.quantity),
+      0,
+    ),
+  );
+
+  readonly cartItemCount = computed(() =>
+    this.checkoutItems().reduce((sum, item) => sum + Number(item.quantity), 0),
+  );
+
+  readonly deliveryFee = computed(() => {
+    if (this.selectedDeliveryMode() === 'cexpress') return 7500;
+    return 0;
+  });
+
+  readonly deliveryFeeLabel = computed(() => {
+    const mode = this.selectedDeliveryMode();
+    if (mode === 'cexpress') return "C'Express — 7 500 XAF";
+    if (mode === 'relay') return 'Retrait point relais — Gratuit';
+    if (mode === 'warehouse') return 'Retrait entrepôt — Gratuit';
+    return 'Livraison gratuite';
+  });
+
+  readonly totalAfterPromo = computed(() =>
+    Math.max(
+      0,
+      this.cartSubtotal() + this.deliveryFee() - this.promoDiscount(),
+    ),
+  );
+
+  readonly canSubmit = computed(
+    () =>
+      this.billingForm.valid &&
+      !!this.formGroup.value.method &&
+      !this.loading() &&
+      this.checkoutItems().length > 0 &&
+      (this.selectedDeliveryMode() !== 'relay' || !!this.selectedRelayPointId()),
+  );
+
+  readonly paymentMethods = [
+    { id: 'orange_money', name: 'Orange Money', icon: 'payments' },
+    { id: 'mtn_momo', name: 'MTN Momo', icon: 'phone' },
+    { id: 'wave', name: 'Wave', icon: 'account_balance_wallet' },
+    { id: 'stripe', name: 'Carte Bancaire', icon: 'credit_card' },
+  ] as const;
+
+  readonly deliveryModes: { id: DeliveryMode; label: string; desc: string; badge?: string; fee: string }[] = [
     {
-      id: 'other',
-      name: 'Livraison standard',
-      description: 'Mode classique sans tarification C\'Express.',
+      id: 'free',
+      label: 'Livraison gratuite',
+      desc: 'Livraison standard offerte sur cette commande.',
+      fee: 'Gratuit',
     },
     {
       id: 'cexpress',
-      name: 'C\'Express',
-      description: 'Livraison prioritaire avec frais calcules au checkout.',
+      label: "C'Express",
+      desc: 'Livraison prioritaire, rapide et suivie.',
       badge: 'Rapide',
+      fee: '7 500 XAF',
+    },
+    {
+      id: 'relay',
+      label: 'Point relais',
+      desc: 'Retrait chez un commerçant partenaire.',
+      fee: 'Gratuit',
+    },
+    {
+      id: 'warehouse',
+      label: 'Retrait entrepôt',
+      desc: 'Venez récupérer votre commande à notre entrepôt.',
+      fee: 'Gratuit',
     },
   ];
 
-  paymentMethods: PaymentMethod[] = [
-    {
-      id: 'orange_money',
-      name: 'Orange Money',
-      icon: 'payments',
-      description: 'Paiement par Orange Money'
-    },
-    {
-      id: 'mtn_momo',
-      name: 'MTN Momo',
-      icon: 'phone',
-      description: 'Paiement par MTN Mobile Money'
-    },
-    {
-      id: 'wave',
-      name: 'Wave',
-      icon: 'account_balance_wallet',
-      description: 'Paiement par Wave'
-    },
-    {
-      id: 'stripe',
-      name: 'Carte Bancaire',
-      icon: 'credit_card',
-      description: 'Paiement par carte bancaire'
-    }
-  ];
-
-  constructor(
-    private fb: FormBuilder,
-    private api: ApiService,
-    private route: ActivatedRoute,
-    private router: Router,
-    private zone: NgZone,
-    private cdr: ChangeDetectorRef,
-    private shopCartService: ShopCartService,
-  ) {
-    this.formGroup = this.fb.group({
-      method: ['', Validators.required],
-      deliveryOption: ['other', Validators.required],
-    });
-
-    this.billingForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      phone: ['', Validators.required],
-      address: ['', Validators.required],
-      city: ['', Validators.required]
-    });
-  }
+  private checkoutSelection: string[] = [];
+  private verifyPollingSub?: Subscription;
 
   ngOnInit(): void {
-    this.route.queryParams.subscribe(params => {
+    this.route.queryParams.subscribe((params) => {
       this.loadCheckoutCart();
-      this.handleStripeReturn(params);
+      this.handleStripeReturn(params as Record<string, string>);
     });
   }
 
   ngOnDestroy(): void {
-    this.stopVerifyPolling();
+    this.verifyPollingSub?.unsubscribe();
   }
 
-  selectPaymentMethod(methodId: string): void {
-    // Sélection visuelle et valeur de form synchronisées.
-    this.formGroup.patchValue({ method: methodId });
+  selectPaymentMethod(id: string): void {
+    this.formGroup.patchValue({ method: id });
   }
 
-  selectDeliveryOption(option: DeliveryOption['id']): void {
-    // Impacte instantanément les frais/total.
-    this.formGroup.patchValue({ deliveryOption: option });
-    this.recomputeAmount();
+  selectDeliveryMode(mode: DeliveryMode): void {
+    this.selectedDeliveryMode.set(mode);
+    this.selectedRelayPointId.set(null);
+    this.formGroup.patchValue({ deliveryMode: mode });
+    if (mode === 'relay' && this.relayPoints().length === 0) {
+      this.loadRelayPoints();
+    }
+  }
+
+  selectRelayPoint(id: string): void {
+    this.selectedRelayPointId.set(id);
   }
 
   applyPromoCode(): void {
-    // Prévisualisation locale de remise avant checkout final.
-    const code = this.promoCode.trim();
+    const code = this.promoCode().trim();
     if (!code) {
-      this.resetPromoPreview();
-      this.promoMessage = null;
+      this.promoDiscount.set(0);
+      this.promoAppliedCode.set(null);
+      this.promoMessage.set(null);
       return;
     }
-
-    const items = this.checkoutItems;
+    const items = this.checkoutItems();
     const subtotal = items.reduce(
-      (sum: number, item: any) => sum + Number(item.price) * Number(item.quantity),
+      (sum, item) => sum + Number(item.price) * Number(item.quantity),
       0,
     );
-
     if (subtotal <= 0) {
-      this.resetPromoPreview();
-      this.promoMessage = 'Panier vide: impossible de calculer la remise.';
+      this.promoDiscount.set(0);
+      this.promoMessage.set('Panier vide: impossible de calculer la remise.');
       return;
     }
-
-    this.promoChecking = true;
-    this.api.get<PromoValidationResponse>(`/cshop/promotions/public/code/${encodeURIComponent(code)}`).subscribe({
-      next: (promo) => {
-        this.promoChecking = false;
-        if (!promo?.valid || !promo.productIds?.length || !promo.type || !promo.value) {
-          this.resetPromoPreview();
-          this.promoMessage = 'Code promo invalide ou expiré.';
-          return;
-        }
-
-        const eligibleSubtotal = items.reduce((sum: number, item: any) => {
-          if (!promo.productIds!.includes(item.id)) return sum;
-          return sum + Number(item.price) * Number(item.quantity);
-        }, 0);
-
-        if (eligibleSubtotal <= 0) {
-          this.resetPromoPreview();
-          this.promoMessage = "Ce code promo ne s'applique à aucun article du panier.";
-          return;
-        }
-
-        const rawDiscount =
-          promo.type === 'percent'
-            ? (eligibleSubtotal * Number(promo.value)) / 100
-            : Number(promo.value);
-        this.promoDiscount = Math.max(0, Math.min(rawDiscount, eligibleSubtotal));
-        this.promoAppliedCode = promo.code || code.toUpperCase();
-        this.promoMessage = `Code ${this.promoAppliedCode} appliqué (${this.promoDiscount.toLocaleString('fr-FR')} XAF).`;
-      },
-      error: () => {
-        this.promoChecking = false;
-        this.resetPromoPreview();
-        this.promoMessage = 'Impossible de vérifier le code promo.';
-      }
-    });
-  }
-
-  submitPayment(): void {
-    if (this.billingForm.invalid || !this.formGroup.value.method) return;
-    const selectedItems = this.checkoutItems;
-    if (!selectedItems.length) {
-      this.error = 'Le panier est vide.';
-      return;
-    }
-
-    this.loading = true;
-    this.error = null;
-    this.pendingInfo = null;
-
-    const checkoutData = {
-      deliveryAddress: `${this.billingForm.value.address}, ${this.billingForm.value.city}`,
-      note: `Contact: ${this.billingForm.value.phone}`,
-      deliveryOption: this.formGroup.value.deliveryOption || 'other',
-      promoCode: this.promoCode.trim() || undefined,
-      cartItemIds: this.checkoutSelection,
-    };
-
-    this.api.post<any>('/cshop/orders/checkout', checkoutData).pipe(
-      switchMap((order) => {
-        if (!order?.id) {
-          return throwError(() => new Error('Impossible de créer la commande.'));
-        }
-
-        const paymentData = {
-          referenceType: 'shop_order',
-          referenceId: order.id,
-          currency: 'XAF',
-          provider: this.formGroup.value.method,
-          metadata: {
-            billingInfo: this.billingForm.value,
-          },
-        };
-
-        return this.api.post<InitPaymentResponse>('/payments/init', paymentData).pipe(
-          map((payment) => ({ order, payment })),
-        );
-      }),
-    ).subscribe({
-      next: ({ order, payment }) => {
-        if (payment?.redirectUrl) {
-          this.loading = false;
-          this.successOrderId = order?.id || null;
-          this.successPaymentRef =
-            payment?.providerTransactionId || payment?.paymentId || null;
-          this.cdr.detectChanges();
-          window.location.href = payment.redirectUrl;
-          return;
-        }
-
-        const providerTransactionId = String(
-          payment?.providerTransactionId || '',
-        ).trim();
-        if (!providerTransactionId) {
-          this.loading = false;
-          this.error =
-            'Paiement initialisé, mais confirmation impossible (référence absente).';
-          return;
-        }
-
-        const providerId = String(payment?.provider || this.formGroup.value.method || '');
-        if (this.isMobileMoneyProvider(providerId)) {
-          this.loading = false;
-          this.successOrderId = order?.id || null;
-          this.pendingPaymentRef = providerTransactionId;
-          this.pendingInstructions =
-            payment?.instructions ||
-            'Confirmez le paiement dans votre wallet puis cliquez sur "Vérifier le paiement".';
-          this.startVerifyPolling(providerTransactionId);
-          this.cdr.detectChanges();
-          return;
-        }
-
-        this.api
-          .post('/payments/verify', {
-            providerTransactionId,
-          })
-          .subscribe({
-            next: () => {
-              this.zone.run(() => {
-                this.loading = false;
-                this.successOrderId = order?.id || null;
-                this.successPaymentRef = providerTransactionId;
-                this.clearCheckoutSelection();
-                this.success = true;
-                this.cdr.detectChanges();
-              });
-            },
-            error: (verifyErr) => {
-              this.zone.run(() => {
-                this.loading = false;
-                this.error =
-                  verifyErr?.error?.message ||
-                  'Paiement initié mais non confirmé automatiquement.';
-                this.cdr.detectChanges();
-              });
-            },
-          });
-      },
-      error: (err) => {
-        this.zone.run(() => {
-          this.loading = false;
-          this.error = err?.error?.message || err?.message || 'Erreur lors du paiement';
-          this.cdr.detectChanges();
-        });
-      }
-    });
-  }
-
-  verifyPendingPayment(): void {
-    const ref = String(this.pendingPaymentRef || '').trim();
-    if (!ref) return;
-    this.loading = true;
+    this.promoChecking.set(true);
     this.api
-      .post('/payments/verify', { providerTransactionId: ref })
+      .get<PromoValidationResponse>(
+        `/cshop/promotions/public/code/${encodeURIComponent(code)}`,
+      )
       .subscribe({
-        next: () => {
-          this.loading = false;
-          this.success = true;
-          this.successPaymentRef = ref;
-          this.pendingPaymentRef = null;
-          this.pendingInstructions = null;
-          this.pendingInfo = null;
-          this.clearCheckoutSelection();
-          this.stopVerifyPolling();
-          this.cdr.detectChanges();
+        next: (promo) => {
+          this.promoChecking.set(false);
+          if (!promo?.valid || !promo.productIds?.length || !promo.type || !promo.value) {
+            this.promoDiscount.set(0);
+            this.promoAppliedCode.set(null);
+            this.promoMessage.set('Code promo invalide ou expiré.');
+            return;
+          }
+          const eligibleSubtotal = items.reduce((sum, item) => {
+            if (!promo.productIds!.includes((item as unknown as Record<string, string>)['productId'] ?? '')) return sum;
+            return sum + Number(item.price) * Number(item.quantity);
+          }, 0);
+          if (eligibleSubtotal <= 0) {
+            this.promoDiscount.set(0);
+            this.promoAppliedCode.set(null);
+            this.promoMessage.set("Ce code promo ne s'applique à aucun article du panier.");
+            return;
+          }
+          const raw =
+            promo.type === 'percent'
+              ? (eligibleSubtotal * Number(promo.value)) / 100
+              : Number(promo.value);
+          const discount = Math.max(0, Math.min(raw, eligibleSubtotal));
+          this.promoDiscount.set(discount);
+          this.promoAppliedCode.set(promo.code || code.toUpperCase());
+          this.promoMessage.set(
+            `Code ${this.promoAppliedCode()} appliqué (${discount.toLocaleString('fr-FR')} XAF).`,
+          );
         },
-        error: (err) => {
-          this.loading = false;
-          this.pendingInfo =
-            err?.error?.message ||
-            'Paiement encore en attente de confirmation opérateur.';
-          this.cdr.detectChanges();
+        error: () => {
+          this.promoChecking.set(false);
+          this.promoDiscount.set(0);
+          this.promoAppliedCode.set(null);
+          this.promoMessage.set('Impossible de vérifier le code promo.');
         },
       });
   }
 
-  get totalAfterPromo(): number {
-    // Total simulé côté UI (sans dépasser 0).
-    return Math.max(0, Number(this.amount) - Number(this.promoDiscount || 0));
+  submitPayment(): void {
+    if (!this.canSubmit()) return;
+
+    this.loading.set(true);
+    this.error.set(null);
+    this.pendingInfo.set(null);
+
+    const billing = this.billingForm.value;
+    const mode = this.selectedDeliveryMode();
+
+    const checkoutData: Record<string, unknown> = {
+      deliveryAddress: `${billing.address}, ${billing.city}`,
+      note: `Contact: ${billing.phone}`,
+      deliveryOption: mode,
+      promoCode: this.promoCode().trim() || undefined,
+      cartItemIds: this.checkoutSelection,
+    };
+    if (mode === 'relay' && this.selectedRelayPointId()) {
+      checkoutData['relayPointId'] = this.selectedRelayPointId();
+    }
+
+    this.api
+      .post<{ id: string }>('/cshop/orders/checkout', checkoutData)
+      .pipe(
+        switchMap((order) => {
+          if (!order?.id) return throwError(() => new Error('Impossible de créer la commande.'));
+          const paymentData = {
+            referenceType: 'shop_order',
+            referenceId: order.id,
+            currency: 'XAF',
+            provider: this.formGroup.value.method,
+            metadata: { billingInfo: billing },
+          };
+          return this.api
+            .post<InitPaymentResponse>('/payments/init', paymentData)
+            .pipe(map((payment) => ({ order, payment })));
+        }),
+      )
+      .subscribe({
+        next: ({ order, payment }) => {
+          if (payment?.redirectUrl) {
+            this.loading.set(false);
+            this.successOrderId.set(order.id);
+            this.successPaymentRef.set(payment.providerTransactionId ?? payment.paymentId);
+            window.location.href = payment.redirectUrl;
+            return;
+          }
+          const ref = String(payment?.providerTransactionId || '').trim();
+          if (!ref) {
+            this.loading.set(false);
+            this.error.set('Paiement initialisé, mais confirmation impossible (référence absente).');
+            return;
+          }
+          const provider = String(payment?.provider || this.formGroup.value.method || '');
+          if (this.isMobileMoney(provider)) {
+            this.loading.set(false);
+            this.successOrderId.set(order.id);
+            this.pendingPaymentRef.set(ref);
+            this.pendingInstructions.set(
+              payment?.instructions ||
+                'Confirmez le paiement dans votre wallet puis cliquez sur "Vérifier le paiement".',
+            );
+            this.startVerifyPolling(ref);
+            return;
+          }
+          this.api.post('/payments/verify', { providerTransactionId: ref }).subscribe({
+            next: () => {
+              this.loading.set(false);
+              this.success.set(true);
+              this.successOrderId.set(order.id);
+              this.successPaymentRef.set(ref);
+              this.clearCheckoutSelection();
+            },
+            error: (err: { error?: { message?: string } }) => {
+              this.loading.set(false);
+              this.error.set(err?.error?.message || 'Paiement initié mais non confirmé automatiquement.');
+            },
+          });
+        },
+        error: (err: { error?: { message?: string }; message?: string }) => {
+          this.loading.set(false);
+          this.error.set(err?.error?.message || err?.message || 'Erreur lors du paiement');
+        },
+      });
   }
 
-  get deliveryFee(): number {
-    // Barème livraison simplifié.
-    return this.formGroup.value.deliveryOption === 'cexpress'
-      ? this.cexpressDeliveryFee
-      : this.standardDeliveryFee;
-  }
-
-  closeSuccess(): void {
-    this.router.navigate(['/']);
-  }
-
-  updateQuantity(item: any, qtyRaw: string): void {
-    const qty = Math.max(1, Number(qtyRaw || 1));
-    this.shopCartService.updateItem(item.id, qty).subscribe({
-      next: () => this.loadCheckoutCart(),
-      error: (err) => {
-        this.error = err?.error?.message || 'Impossible de mettre à jour la quantité.';
+  verifyPendingPayment(): void {
+    const ref = String(this.pendingPaymentRef() || '').trim();
+    if (!ref) return;
+    this.loading.set(true);
+    this.api.post('/payments/verify', { providerTransactionId: ref }).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.success.set(true);
+        this.successPaymentRef.set(ref);
+        this.pendingPaymentRef.set(null);
+        this.pendingInstructions.set(null);
+        this.pendingInfo.set(null);
+        this.clearCheckoutSelection();
+        this.verifyPollingSub?.unsubscribe();
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.loading.set(false);
+        this.pendingInfo.set(err?.error?.message || 'Paiement encore en attente de confirmation opérateur.');
       },
     });
   }
 
-  removeItem(item: any): void {
+  updateQuantity(item: ShopCartItem, qtyRaw: string): void {
+    const qty = Math.max(1, Number(qtyRaw || 1));
+    this.shopCartService.updateItem(item.id, qty).subscribe({
+      next: () => this.loadCheckoutCart(),
+      error: (err: { error?: { message?: string } }) => {
+        this.error.set(err?.error?.message || 'Impossible de mettre à jour la quantité.');
+      },
+    });
+  }
+
+  removeItem(item: ShopCartItem): void {
     this.shopCartService.removeItem(item.id).subscribe({
       next: () => {
         this.checkoutSelection = this.checkoutSelection.filter((id) => id !== item.id);
         this.persistSelection();
         this.loadCheckoutCart();
       },
-      error: (err) => {
-        this.error = err?.error?.message || 'Impossible de retirer cet article.';
+      error: (err: { error?: { message?: string } }) => {
+        this.error.set(err?.error?.message || 'Impossible de retirer cet article.');
       },
     });
   }
 
-  getCheckoutQuantityOptions(item: any): number[] {
-    const max = Math.min(20, Math.max(1, Number(item?.stock || item?.quantity || 1)));
-    return Array.from({ length: max }, (_, idx) => idx + 1);
+  closeSuccess(): void {
+    void this.router.navigate(['/']);
   }
 
   getItemImage(item: ShopCartItem): string | null {
-    const raw = item?.image;
-    if (!raw) return null;
-    return buildMediaUrl(String(raw));
+    if (!item?.image) return null;
+    return buildMediaUrl(String(item.image));
   }
 
-  private resetPromoPreview(): void {
-    this.promoDiscount = 0;
-    this.promoAppliedCode = null;
+  getQuantityOptions(item: ShopCartItem): number[] {
+    const max = Math.min(20, Math.max(1, Number((item as unknown as Record<string, unknown>)['stock'] ?? item.quantity ?? 1)));
+    return Array.from({ length: max }, (_, i) => i + 1);
   }
 
-  private recomputeCartStats(): void {
-    this.cartSubtotal = this.checkoutItems.reduce(
-      (sum: number, item: any) => sum + Number(item.price) * Number(item.quantity),
-      0,
-    );
-    this.cartItems = this.checkoutItems.reduce(
-      (sum: number, item: any) => sum + Number(item.quantity || 0),
-      0,
-    );
-    this.recomputeAmount();
-  }
-
-  private recomputeAmount(): void {
-    // Recalcule la base de paiement (hors remise promo).
-    this.amount = Number(this.cartSubtotal || 0) + Number(this.deliveryFee);
-  }
-
-  private handleStripeReturn(params: Record<string, any>): void {
-    const status = String(params['status'] || '').toLowerCase();
-    const sessionId = String(params['session_id'] || '').trim();
-
-    if (status === 'cancel') {
-      this.error = 'Paiement annulé. Vous pouvez reprendre le checkout.';
-      return;
-    }
-
-    if (status !== 'success' || !sessionId) {
-      return;
-    }
-
-    this.loading = true;
-    this.api
-      .post('/payments/verify', { providerTransactionId: sessionId })
-      .subscribe({
-        next: () => {
-          this.zone.run(() => {
-            this.loading = false;
-            this.success = true;
-            this.successPaymentRef = sessionId;
-            this.clearCheckoutSelection();
-            this.cdr.detectChanges();
-            void this.router.navigate([], {
-              relativeTo: this.route,
-              queryParams: {},
-              replaceUrl: true,
-            });
-          });
-        },
-        error: (err) => {
-          this.zone.run(() => {
-            this.loading = false;
-            this.error =
-              err?.error?.message ||
-              'Retour Stripe détecté, mais validation du paiement impossible.';
-            this.cdr.detectChanges();
-          });
-        },
-      });
-  }
-
-  private startVerifyPolling(providerTransactionId: string): void {
-    this.stopVerifyPolling();
-    this.verifyPollingSub = timer(6000, 7000)
-      .pipe(
-        switchMap(() =>
-          this.api.post('/payments/verify', { providerTransactionId }),
-        ),
-      )
-      .subscribe({
-        next: () => {
-          this.success = true;
-          this.successPaymentRef = providerTransactionId;
-          this.pendingPaymentRef = null;
-          this.pendingInstructions = null;
-          this.pendingInfo = null;
-          this.clearCheckoutSelection();
-          this.stopVerifyPolling();
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          // Le provider peut rester en PENDING plusieurs cycles.
-        },
-      });
-  }
-
-  private stopVerifyPolling(): void {
-    this.verifyPollingSub?.unsubscribe();
-    this.verifyPollingSub = undefined;
-  }
-
-  private isMobileMoneyProvider(provider: string): boolean {
-    return (
-      provider === 'orange_money' ||
-      provider === 'mtn_momo' ||
-      provider === 'wave'
-    );
+  private loadRelayPoints(): void {
+    this.relayPointsLoading.set(true);
+    this.api.get<RelayPoint[]>('/cshop/relay-points').subscribe({
+      next: (pts) => {
+        this.relayPoints.set(pts ?? []);
+        this.relayPointsLoading.set(false);
+      },
+      error: () => {
+        this.relayPoints.set([]);
+        this.relayPointsLoading.set(false);
+      },
+    });
   }
 
   private loadCheckoutCart(): void {
@@ -533,43 +441,84 @@ export class PaymentComponent implements OnInit, OnDestroy {
       next: (cart) => {
         const selectedIds = this.checkoutSelection.length
           ? this.checkoutSelection
-          : cart.items.map((item) => item.id);
-        this.checkoutItems = cart.items.filter((item) => selectedIds.includes(item.id));
-        this.checkoutSelection = this.checkoutItems.map((item) => item.id);
-        if (this.checkoutSelection.length > 0) {
-          this.persistSelection();
-        } else {
-          this.clearCheckoutSelection();
-        }
-        this.recomputeCartStats();
-        this.cdr.detectChanges();
+          : cart.items.map((i) => i.id);
+        const items = cart.items.filter((i) => selectedIds.includes(i.id));
+        this.checkoutSelection = items.map((i) => i.id);
+        this.checkoutItems.set(items);
+        if (this.checkoutSelection.length > 0) this.persistSelection();
+        else this.clearCheckoutSelection();
       },
-      error: (err) => {
-        this.checkoutItems = [];
+      error: (err: { error?: { message?: string } }) => {
+        this.checkoutItems.set([]);
         this.checkoutSelection = [];
-        this.error = err?.error?.message || 'Impossible de charger le panier.';
-        this.recomputeCartStats();
-        this.cdr.detectChanges();
+        this.error.set(err?.error?.message || 'Impossible de charger le panier.');
       },
     });
+  }
+
+  private handleStripeReturn(params: Record<string, string>): void {
+    const status = String(params['status'] || '').toLowerCase();
+    const sessionId = String(params['session_id'] || '').trim();
+    if (status === 'cancel') {
+      this.error.set('Paiement annulé. Vous pouvez reprendre le checkout.');
+      return;
+    }
+    if (status !== 'success' || !sessionId) return;
+    this.loading.set(true);
+    this.api.post('/payments/verify', { providerTransactionId: sessionId }).subscribe({
+      next: () => {
+        this.loading.set(false);
+        this.success.set(true);
+        this.successPaymentRef.set(sessionId);
+        this.clearCheckoutSelection();
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: {},
+          replaceUrl: true,
+        });
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.loading.set(false);
+        this.error.set(err?.error?.message || 'Retour Stripe détecté, mais validation impossible.');
+      },
+    });
+  }
+
+  private startVerifyPolling(ref: string): void {
+    this.verifyPollingSub?.unsubscribe();
+    this.verifyPollingSub = timer(6000, 7000)
+      .pipe(switchMap(() => this.api.post('/payments/verify', { providerTransactionId: ref })))
+      .subscribe({
+        next: () => {
+          this.success.set(true);
+          this.successPaymentRef.set(ref);
+          this.pendingPaymentRef.set(null);
+          this.pendingInstructions.set(null);
+          this.pendingInfo.set(null);
+          this.clearCheckoutSelection();
+          this.verifyPollingSub?.unsubscribe();
+        },
+        error: () => { /* encore en attente */ },
+      });
+  }
+
+  private isMobileMoney(provider: string): boolean {
+    return provider === 'orange_money' || provider === 'mtn_momo' || provider === 'wave';
   }
 
   private readSelection(): string[] {
     const raw = sessionStorage.getItem(this.checkoutSelectionKey);
     if (!raw) return [];
     try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map((value) => String(value)) : [];
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
     } catch {
       return [];
     }
   }
 
   private persistSelection(): void {
-    sessionStorage.setItem(
-      this.checkoutSelectionKey,
-      JSON.stringify(this.checkoutSelection),
-    );
+    sessionStorage.setItem(this.checkoutSelectionKey, JSON.stringify(this.checkoutSelection));
   }
 
   private clearCheckoutSelection(): void {

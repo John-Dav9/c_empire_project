@@ -11,8 +11,10 @@ import { OrderStatus } from './order-status.enum';
 import { OrderItem } from './order-item.entity';
 
 export enum DeliveryOption {
-  CEXPRESS = 'cexpress',
-  OTHER = 'other',
+  CEXPRESS = 'cexpress',   // Livraison C'Express (tarif calculé dynamiquement)
+  FREE = 'free',           // Livraison gratuite
+  RELAY = 'relay',         // Retrait dans un point relais
+  WAREHOUSE = 'warehouse', // Retrait en entrepôt
 }
 
 @Entity('orders')
@@ -50,7 +52,7 @@ export class Order {
   @Column({ nullable: true })
   paymentMethod?: string;
 
-  @Column({ type: 'enum', enum: DeliveryOption, default: DeliveryOption.OTHER })
+  @Column({ type: 'enum', enum: DeliveryOption, default: DeliveryOption.FREE })
   deliveryOption: DeliveryOption;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
@@ -58,6 +60,9 @@ export class Order {
 
   @Column({ nullable: true })
   deliveryAddress?: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  relayPointId?: string | null;
 
   @Column({ default: false })
   isPaid: boolean;

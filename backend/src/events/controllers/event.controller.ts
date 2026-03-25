@@ -13,6 +13,7 @@ import { CEventService } from '../services/event.service';
 import { EventAiService } from '../services/event-ai.service';
 
 import { CreateEventDto } from '../dto/create-event.dto';
+import { SuggestCategoryDto } from '../dto/suggest-category.dto';
 import { UpdateEventDto } from '../dto/update-event.dto';
 import { EventCategory } from '../enums/event-category.enum';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
@@ -80,7 +81,7 @@ export class CEventController {
 
   @Public()
   @Post('ai/suggest-category')
-  async suggestCategory(@Body() body: { need: string }) {
+  async suggestCategory(@Body() body: SuggestCategoryDto) {
     const category = this.eventAiService.suggestEventCategory(body.need);
     return { category };
   }

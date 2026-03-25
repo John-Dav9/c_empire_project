@@ -9,7 +9,7 @@
     <div class="header-top">
       <h1>Résultats Boutique</h1>
       <button type="button" class="cart-cta" (click)="goToCart()">
-        Panier ({{ cartCount }})
+        Panier ({{ cartCount() }})
       </button>
     </div>
 
@@ -17,99 +17,114 @@
       <input
         type="text"
         placeholder="Rechercher un produit par nom ou code..."
-        [value]="searchTerm"
-        (input)="onSearchInput($any($event.target).value)"
+        [value]="searchTerm()"
+        (input)="searchTerm.set($any($event.target).value)"
       />
     </div>
 
-    <div class="category-row" *ngIf="categories.length > 0">
-      <button type="button" class="category-chip" [class.active]="selectedCategory === 'all'" (click)="setCategory('all')">
-        Toutes
-      </button>
-      <button type="button" class="category-chip" *ngFor="let category of categories" [class.active]="selectedCategory === category" (click)="setCategory(category)">
-        {{ category }}
-      </button>
-    </div>
+    @if (categories().length > 0) {
+      <div class="category-row">
+        <button type="button" class="category-chip" [class.active]="selectedCategory() === 'all'" (click)="setCategory('all')">
+          Toutes
+        </button>
+        @for (category of categories(); track category) {
+          <button type="button" class="category-chip" [class.active]="selectedCategory() === category" (click)="setCategory(category)">
+            {{ category }}
+          </button>
+        }
+      </div>
+    }
   </header>
 
-  <div *ngIf="loading" class="loading">
-    <mat-spinner></mat-spinner>
-  </div>
+  @if (loading()) {
+    <div class="loading">
+      <mat-spinner></mat-spinner>
+    </div>
+  }
 
-  <div class="notice" *ngIf="notice">{{ notice }}</div>
+  @if (notice()) {
+    <div class="notice">{{ notice() }}</div>
+  }
 
-  <div *ngIf="!loading" class="market-layout">
-    <section class="products-grid">
-      <mat-card *ngFor="let product of filteredProducts; trackBy: trackByProductId" class="product-card app-shell-card">
-        <mat-card-header>
-          <div class="product-image" *ngIf="product.image; else noImage">
-            <img [src]="product.image" [alt]="product.name" (error)="onImageError(product)" />
-          </div>
-          <ng-template #noImage>
-            <div class="product-image placeholder">
-              <mat-icon>shopping_cart</mat-icon>
-              <span>Image indisponible</span>
-            </div>
-          </ng-template>
-        </mat-card-header>
-        <mat-card-content>
-          <h2>{{ product.name }}</h2>
-          <p class="sku" *ngIf="product.sku">Code: {{ product.sku }}</p>
-          <p class="description">
-            {{ (product.description | slice:0:100) + (product.description.length > 100 ? '...' : '') }}
-          </p>
-          <div class="rating-row">
-            <span class="stars">
-              <mat-icon *ngFor="let s of stars(product.avgRating)">
-                {{ s ? 'star' : 'star_border' }}
-              </mat-icon>
-            </span>
-            <span class="rating-value">{{ product.avgRating | number:'1.1-1' }}/5</span>
-            <span class="rating-count">({{ product.reviewsCount }} avis)</span>
-          </div>
-          <div class="meta">
-            <mat-chip>{{ product.category || 'Général' }}</mat-chip>
-            <span class="stock" [class.low]="product.stock < 5">
-              Stock: {{ product.stock }}
-            </span>
-          </div>
-        </mat-card-content>
-        <mat-card-actions>
-          <span class="price">{{ product.price | currency:'XOF' }}</span>
-          <button
-            mat-stroked-button
-            type="button"
-            (click)="openDetails(product)"
-            [disabled]="!canOpenDetails(product)"
-          >
-            Détails
-          </button>
-          <button mat-raised-button color="primary" (click)="addToCart(product)">
-            Ajouter
-          </button>
-        </mat-card-actions>
-      </mat-card>
-    </section>
+  @if (!loading()) {
+    <div class="market-layout">
+      <section class="products-grid">
+        @for (product of filteredProducts(); track product.id) {
+          <mat-card class="product-card app-shell-card">
+            <mat-card-header>
+              @if (product.image) {
+                <div class="product-image">
+                  <img [src]="product.image" [alt]="product.name" (error)="onImageError(product.id)" />
+                </div>
+              } @else {
+                <div class="product-image placeholder">
+                  <mat-icon>shopping_cart</mat-icon>
+                  <span>Image indisponible</span>
+                </div>
+              }
+            </mat-card-header>
+            <mat-card-content>
+              <h2>{{ product.name }}</h2>
+              @if (product.sku) {
+                <p class="sku">Code: {{ product.sku }}</p>
+              }
+              <p class="description">{{ truncate(product.description) }}</p>
+              <div class="rating-row">
+                <span class="stars">
+                  @for (s of stars(product.avgRating); track $index) {
+                    <mat-icon>{{ s ? 'star' : 'star_border' }}</mat-icon>
+                  }
+                </span>
+                <span class="rating-value">{{ product.avgRating | number:'1.1-1' }}/5</span>
+                <span class="rating-count">({{ product.reviewsCount }} avis)</span>
+              </div>
+              <div class="meta">
+                <mat-chip>{{ product.category || 'Général' }}</mat-chip>
+                <span class="stock" [class.low]="product.stock < 5">
+                  Stock: {{ product.stock }}
+                </span>
+              </div>
+            </mat-card-content>
+            <mat-card-actions>
+              <span class="price">{{ product.price | currencyXaf }}</span>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="openDetails(product)"
+                [disabled]="!canOpenDetails(product)"
+              >
+                Détails
+              </button>
+              <button mat-raised-button color="primary" (click)="addToCart(product)">
+                Ajouter
+              </button>
+            </mat-card-actions>
+          </mat-card>
+        }
+      </section>
 
-    <aside class="cart-side app-shell-card">
-      <h3>Sous-total</h3>
-      <p class="cart-amount">{{ cartSubtotal | currency:'XOF' }}</p>
-      <p class="cart-meta">{{ cartCount }} article(s) dans le panier</p>
-      <button mat-raised-button color="primary" class="go-cart" (click)="goToCart()">
-        Commander
-      </button>
-      <button mat-stroked-button class="go-cart" (click)="goToCart()">
-        Aller au panier
-      </button>
-    </aside>
-  </div>
+      <aside class="cart-side app-shell-card">
+        <h3>Sous-total</h3>
+        <p class="cart-amount">{{ cartSubtotal() | currencyXaf }}</p>
+        <p class="cart-meta">{{ cartCount() }} article(s) dans le panier</p>
+        <button mat-raised-button color="primary" class="go-cart" (click)="goToCart()">
+          Commander
+        </button>
+        <button mat-stroked-button class="go-cart" (click)="goToCart()">
+          Aller au panier
+        </button>
+      </aside>
+    </div>
+  }
 
-  <div *ngIf="!loading && filteredProducts.length === 0" class="no-products">
-    <mat-icon>inbox</mat-icon>
-    <h2>Aucun produit trouvé pour ce filtre</h2>
-  </div>
+  @if (!loading() && filteredProducts().length === 0) {
+    <div class="no-products">
+      <mat-icon>inbox</mat-icon>
+      <h2>Aucun produit trouvé pour ce filtre</h2>
+    </div>
+  }
 
-  <div *ngIf="error" class="error-message">
-    {{ error }}
-  </div>
+  @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+  }
 </div>

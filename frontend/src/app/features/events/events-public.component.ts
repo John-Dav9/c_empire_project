@@ -1,5 +1,11 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +13,7 @@ import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { buildMediaUrl } from '../../core/config/api.config';
 import { AuthService } from '../../core/services/auth.service';
+import { CurrencyXafPipe } from '../../shared/pipes/currency-xaf.pipe';
 
 type EventItem = {
   id: string;
@@ -39,25 +46,27 @@ type DecorIdeasResponse = {
   ideas: string[];
 };
 
+type PaymentProvider =
+  | 'orange_money'
+  | 'mtn_momo'
+  | 'wave'
+  | 'stripe'
+  | 'paypal'
+  | 'wallet'
+  | 'card';
+
 type BookingPayload = {
   eventId: string;
   eventDate: string;
   location: string;
   options?: Record<string, unknown>;
-  paymentProvider:
-    | 'orange_money'
-    | 'mtn_momo'
-    | 'wave'
-    | 'stripe'
-    | 'paypal'
-    | 'wallet'
-    | 'card';
+  paymentProvider: PaymentProvider;
 };
 
 @Component({
   selector: 'app-events-public',
-  standalone: true,
-  imports: [CommonModule, MatIconModule, FormsModule],
+  imports: [MatIconModule, FormsModule, CurrencyXafPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="events-page page-enter">
       <header class="hero app-shell-card">
@@ -99,43 +108,62 @@ type BookingPayload = {
             <label>Decrivez votre besoin</label>
             <textarea
               rows="5"
-              [(ngModel)]="aiNeed"
+              [ngModel]="aiNeed()"
+              (ngModelChange)="aiNeed.set($event)"
               placeholder="Ex: Je veux organiser un mariage de 250 personnes en septembre avec deco chic et animation live"
             ></textarea>
-            <button type="button" class="ai-btn" (click)="runAiAssistant()" [disabled]="aiLoading || !aiNeed.trim()">
-              {{ aiLoading ? 'Analyse en cours...' : 'Suggerez ma categorie et mon plan' }}
+            <button type="button" class="ai-btn" (click)="runAiAssistant()" [disabled]="aiLoading() || !aiNeed().trim()">
+              {{ aiLoading() ? 'Analyse en cours...' : 'Suggerez ma categorie et mon plan' }}
             </button>
-            <p class="planner-error" *ngIf="aiError">{{ aiError }}</p>
+            @if (aiError()) {
+              <p class="planner-error">{{ aiError() }}</p>
+            }
           </div>
 
-          <div class="planner-right" *ngIf="aiCategory || aiChecklist.length || aiDecorIdeas.length">
-            <div class="ai-card" *ngIf="aiCategory">
-              <h3>Categorie recommandee</h3>
-              <p>{{ categoryLabels[aiCategory] || aiCategory }}</p>
-              <button type="button" (click)="applySuggestedCategory()">Utiliser cette categorie</button>
-            </div>
+          @if (aiCategory() || aiChecklist().length || aiDecorIdeas().length) {
+            <div class="planner-right">
+              @if (aiCategory()) {
+                <div class="ai-card">
+                  <h3>Categorie recommandee</h3>
+                  <p>{{ categoryLabels[aiCategory()] || aiCategory() }}</p>
+                  <button type="button" (click)="applySuggestedCategory()">Utiliser cette categorie</button>
+                </div>
+              }
 
-            <div class="ai-card" *ngIf="aiChecklist.length > 0">
-              <h3>Checklist proposee</h3>
-              <ul>
-                <li *ngFor="let point of aiChecklist">{{ point }}</li>
-              </ul>
-            </div>
+              @if (aiChecklist().length > 0) {
+                <div class="ai-card">
+                  <h3>Checklist proposee</h3>
+                  <ul>
+                    @for (point of aiChecklist(); track point) {
+                      <li>{{ point }}</li>
+                    }
+                  </ul>
+                </div>
+              }
 
-            <div class="ai-card" *ngIf="aiPlanningEntries.length > 0">
-              <h3>Planning conseille</h3>
-              <ul>
-                <li *ngFor="let item of aiPlanningEntries"><strong>{{ item[0] }}</strong> - {{ item[1] }}</li>
-              </ul>
-            </div>
+              @if (aiPlanningEntries().length > 0) {
+                <div class="ai-card">
+                  <h3>Planning conseille</h3>
+                  <ul>
+                    @for (item of aiPlanningEntries(); track item[0]) {
+                      <li><strong>{{ item[0] }}</strong> - {{ item[1] }}</li>
+                    }
+                  </ul>
+                </div>
+              }
 
-            <div class="ai-card" *ngIf="aiDecorIdeas.length > 0">
-              <h3>Idees deco</h3>
-              <ul>
-                <li *ngFor="let idea of aiDecorIdeas">{{ idea }}</li>
-              </ul>
+              @if (aiDecorIdeas().length > 0) {
+                <div class="ai-card">
+                  <h3>Idees deco</h3>
+                  <ul>
+                    @for (idea of aiDecorIdeas(); track idea) {
+                      <li>{{ idea }}</li>
+                    }
+                  </ul>
+                </div>
+              }
             </div>
-          </div>
+          }
         </div>
       </section>
 
@@ -148,129 +176,148 @@ type BookingPayload = {
         <div class="filters">
           <input
             type="text"
-            [(ngModel)]="searchTerm"
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
             placeholder="Rechercher un event (titre, mot cle...)"
           />
           <div class="chips">
-            <button type="button" [class.active]="selectedCategory === ''" (click)="selectedCategory = ''">Tous</button>
-            <button
-              type="button"
-              *ngFor="let c of categories"
-              [class.active]="selectedCategory === c"
-              (click)="selectedCategory = c"
-            >
-              {{ categoryLabels[c] || c }}
-            </button>
+            <button type="button" [class.active]="selectedCategory() === ''" (click)="selectedCategory.set('')">Tous</button>
+            @for (c of categories(); track c) {
+              <button
+                type="button"
+                [class.active]="selectedCategory() === c"
+                (click)="selectedCategory.set(c)"
+              >
+                {{ categoryLabels[c] || c }}
+              </button>
+            }
           </div>
         </div>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
-        <div class="loading" *ngIf="loading">Chargement des offres events...</div>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
+        @if (loading()) {
+          <div class="loading">Chargement des offres events...</div>
+        }
 
-        <section class="grid" *ngIf="!loading">
-          <article class="card" *ngFor="let item of filteredEvents">
-            <div class="img">
-              <img
-                *ngIf="item.images?.[0]; else fallback"
-                [src]="item.images?.[0]"
-                [alt]="item.title"
-                (error)="item.images=[]"
-              />
-              <ng-template #fallback>
-                <div class="fallback">
-                  <mat-icon>event</mat-icon>
-                  <span>Pack evenement</span>
+        @if (!loading()) {
+          <section class="grid">
+            @for (item of filteredEvents(); track item.id) {
+              <article class="card">
+                <div class="img">
+                  @if (item.images?.[0]) {
+                    <img
+                      [src]="item.images![0]"
+                      [alt]="item.title"
+                      (error)="onEventImageError(item.id)"
+                    />
+                  } @else {
+                    <div class="fallback">
+                      <mat-icon>event</mat-icon>
+                      <span>Pack evenement</span>
+                    </div>
+                  }
+                  <span class="badge">{{ categoryLabels[item.category] || item.category }}</span>
                 </div>
-              </ng-template>
-              <span class="badge">{{ categoryLabels[item.category] || item.category }}</span>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-            <div class="meta">
-              <strong>{{ item.basePrice | currency:'XOF' }}</strong>
-              <button type="button" (click)="selectEvent(item)">Details</button>
-            </div>
-          </article>
-        </section>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description }}</p>
+                <div class="meta">
+                  <strong>{{ item.basePrice | currencyXaf }}</strong>
+                  <button type="button" (click)="selectEvent(item)">Details</button>
+                </div>
+              </article>
+            }
+          </section>
+        }
       </section>
 
-      <section class="booking app-shell-card" *ngIf="selectedEvent as event">
-        <div class="section-head">
-          <h2>{{ event.title }}</h2>
-          <span>Etape 3 - Finalisez votre reservation</span>
-        </div>
+      @if (selectedEvent(); as event) {
+        <section class="booking app-shell-card">
+          <div class="section-head">
+            <h2>{{ event.title }}</h2>
+            <span>Etape 3 - Finalisez votre reservation</span>
+          </div>
 
-        <div class="booking-grid">
-          <article class="event-summary">
-            <img *ngIf="event.images?.[0]; else summaryFallback" [src]="event.images?.[0]" [alt]="event.title" />
-            <ng-template #summaryFallback>
-              <div class="fallback large">
-                <mat-icon>event_available</mat-icon>
-                <span>Visuel indisponible</span>
+          <div class="booking-grid">
+            <article class="event-summary">
+              @if (event.images?.[0]) {
+                <img [src]="event.images![0]" [alt]="event.title" />
+              } @else {
+                <div class="fallback large">
+                  <mat-icon>event_available</mat-icon>
+                  <span>Visuel indisponible</span>
+                </div>
+              }
+              <p>{{ event.description }}</p>
+              <div class="summary-row">
+                <span>Categorie</span>
+                <strong>{{ categoryLabels[event.category] || event.category }}</strong>
               </div>
-            </ng-template>
-            <p>{{ event.description }}</p>
-            <div class="summary-row">
-              <span>Categorie</span>
-              <strong>{{ categoryLabels[event.category] || event.category }}</strong>
-            </div>
-            <div class="summary-row">
-              <span>Base tarifaire</span>
-              <strong>{{ event.basePrice | currency:'XOF' }}</strong>
-            </div>
-          </article>
+              <div class="summary-row">
+                <span>Base tarifaire</span>
+                <strong>{{ event.basePrice | currencyXaf }}</strong>
+              </div>
+            </article>
 
-          <form class="booking-form" (ngSubmit)="submitBooking()">
-            <label>
-              Date de l'evenement
-              <input type="date" [min]="today" [(ngModel)]="bookingDate" name="bookingDate" required />
-            </label>
+            <form class="booking-form" (ngSubmit)="submitBooking()">
+              <label>
+                Date de l'evenement
+                <input type="date" [min]="today" [ngModel]="bookingDate()" (ngModelChange)="bookingDate.set($event)" name="bookingDate" required />
+              </label>
 
-            <label>
-              Lieu
-              <input
-                type="text"
-                [(ngModel)]="bookingLocation"
-                name="bookingLocation"
-                placeholder="Ville, quartier, salle ou adresse"
-                required
-              />
-            </label>
+              <label>
+                Lieu
+                <input
+                  type="text"
+                  [ngModel]="bookingLocation()"
+                  (ngModelChange)="bookingLocation.set($event)"
+                  name="bookingLocation"
+                  placeholder="Ville, quartier, salle ou adresse"
+                  required
+                />
+              </label>
 
-            <label>
-              Options / besoins specifiques
-              <textarea
-                rows="5"
-                [(ngModel)]="bookingOptions"
-                name="bookingOptions"
-                placeholder="Ex: 250 personnes, theme blanc-or, sonorisation complete, camera..."
-              ></textarea>
-            </label>
+              <label>
+                Options / besoins specifiques
+                <textarea
+                  rows="5"
+                  [ngModel]="bookingOptions()"
+                  (ngModelChange)="bookingOptions.set($event)"
+                  name="bookingOptions"
+                  placeholder="Ex: 250 personnes, theme blanc-or, sonorisation complete, camera..."
+                ></textarea>
+              </label>
 
-            <label>
-              Moyen de paiement
-              <select [(ngModel)]="bookingPaymentProvider" name="bookingPaymentProvider" required>
-                <option value="orange_money">Orange Money</option>
-                <option value="mtn_momo">MTN Momo</option>
-                <option value="wave">Wave</option>
-                <option value="card">Carte bancaire</option>
-                <option value="stripe">Stripe</option>
-                <option value="paypal">PayPal</option>
-              </select>
-            </label>
+              <label>
+                Moyen de paiement
+                <select [ngModel]="bookingPaymentProvider()" (ngModelChange)="bookingPaymentProvider.set($event)" name="bookingPaymentProvider" required>
+                  <option value="orange_money">Orange Money</option>
+                  <option value="mtn_momo">MTN Momo</option>
+                  <option value="wave">Wave</option>
+                  <option value="card">Carte bancaire</option>
+                  <option value="stripe">Stripe</option>
+                  <option value="paypal">PayPal</option>
+                </select>
+              </label>
 
-            <div class="booking-actions">
-              <button type="button" class="secondary" (click)="clearBookingForm()">Reinitialiser</button>
-              <button type="submit" class="primary" [disabled]="bookingLoading">
-                {{ bookingLoading ? 'Creation en cours...' : 'Reserver maintenant' }}
-              </button>
-            </div>
+              <div class="booking-actions">
+                <button type="button" class="secondary" (click)="clearBookingForm()">Reinitialiser</button>
+                <button type="submit" class="primary" [disabled]="bookingLoading()">
+                  {{ bookingLoading() ? 'Creation en cours...' : 'Reserver maintenant' }}
+                </button>
+              </div>
 
-            <p class="booking-info" *ngIf="bookingMessage">{{ bookingMessage }}</p>
-            <p class="booking-error" *ngIf="bookingError">{{ bookingError }}</p>
-          </form>
-        </div>
-      </section>
+              @if (bookingMessage()) {
+                <p class="booking-info">{{ bookingMessage() }}</p>
+              }
+              @if (bookingError()) {
+                <p class="booking-error">{{ bookingError() }}</p>
+              }
+            </form>
+          </div>
+        </section>
+      }
 
       <section class="process app-shell-card">
         <h2>Le parcours C'Events en 3 phases</h2>
@@ -567,6 +614,12 @@ type BookingPayload = {
   `],
 })
 export class EventsPublicComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
+  readonly today = new Date().toISOString().slice(0, 10);
+
   readonly categoryLabels: Record<string, string> = {
     MARIAGE: 'Mariage',
     BAPTEME: 'Bapteme',
@@ -578,159 +631,163 @@ export class EventsPublicComponent implements OnInit {
     SURPRISE: 'Surprise',
   };
 
-  events: EventItem[] = [];
-  loading = true;
-  error: string | null = null;
+  readonly events = signal<EventItem[]>([]);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly selectedCategory = signal('');
+  readonly searchTerm = signal('');
+  readonly selectedEvent = signal<EventItem | null>(null);
 
-  selectedCategory = '';
-  searchTerm = '';
+  readonly aiNeed = signal('');
+  readonly aiLoading = signal(false);
+  readonly aiError = signal<string | null>(null);
+  readonly aiCategory = signal('');
+  readonly aiChecklist = signal<string[]>([]);
+  readonly aiPlanningEntries = signal<Array<[string, string]>>([]);
+  readonly aiDecorIdeas = signal<string[]>([]);
 
-  selectedEvent: EventItem | null = null;
+  readonly bookingDate = signal('');
+  readonly bookingLocation = signal('');
+  readonly bookingOptions = signal('');
+  readonly bookingPaymentProvider = signal<PaymentProvider>('orange_money');
+  readonly bookingLoading = signal(false);
+  readonly bookingMessage = signal<string | null>(null);
+  readonly bookingError = signal<string | null>(null);
 
-  aiNeed = '';
-  aiLoading = false;
-  aiError: string | null = null;
-  aiCategory = '';
-  aiChecklist: string[] = [];
-  aiPlanningEntries: Array<[string, string]> = [];
-  aiDecorIdeas: string[] = [];
-
-  bookingDate = '';
-  bookingLocation = '';
-  bookingOptions = '';
-  bookingPaymentProvider: BookingPayload['paymentProvider'] = 'orange_money';
-  bookingLoading = false;
-  bookingMessage: string | null = null;
-  bookingError: string | null = null;
-
-  constructor(
-    private readonly api: ApiService,
-    private readonly authService: AuthService,
-    private readonly router: Router,
-  ) {}
-
-  ngOnInit(): void {
-    this.api.get<EventItem[]>('/c-event/events').subscribe({
-      next: (data) => {
-        this.events = (Array.isArray(data) ? data : [])
-          .filter((e) => e.isActive !== false)
-          .map((item) => ({
-            ...item,
-            images: (item.images || []).map((src) => buildMediaUrl(src)),
-          }));
-
-        if (this.events.length > 0) {
-          this.selectedEvent = this.events[0];
-        }
-
-        this.loading = false;
-      },
-      error: () => {
-        this.error = "Impossible de charger les offres C'Events.";
-        this.loading = false;
-      },
-    });
-  }
-
-  get categories(): string[] {
+  readonly categories = computed(() => {
     const set = new Set(
-      this.events
+      this.events()
         .map((event) => String(event.category || '').trim())
         .filter(Boolean),
     );
     return Array.from(set);
-  }
+  });
 
-  get filteredEvents(): EventItem[] {
-    const q = this.searchTerm.trim().toLowerCase();
-    return this.events.filter((event) => {
-      const matchesCategory = !this.selectedCategory || event.category === this.selectedCategory;
+  readonly filteredEvents = computed(() => {
+    const q = this.searchTerm().trim().toLowerCase();
+    const cat = this.selectedCategory();
+    return this.events().filter((event) => {
+      const matchesCategory = !cat || event.category === cat;
       const matchesSearch =
         !q ||
         String(event.title || '').toLowerCase().includes(q) ||
         String(event.description || '').toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
-  }
+  });
 
-  get today(): string {
-    return new Date().toISOString().slice(0, 10);
-  }
+  ngOnInit(): void {
+    this.api.get<EventItem[]>('/c-event/events').subscribe({
+      next: (data) => {
+        const loaded = (Array.isArray(data) ? data : [])
+          .filter((e) => e.isActive !== false)
+          .map((item) => ({
+            ...item,
+            images: (item.images || []).map((src) => buildMediaUrl(src)),
+          }));
 
-  selectEvent(item: EventItem): void {
-    this.selectedEvent = item;
-    this.bookingMessage = null;
-    this.bookingError = null;
-  }
-
-  runAiAssistant(): void {
-    this.aiError = null;
-    this.aiLoading = true;
-    this.aiCategory = '';
-    this.aiChecklist = [];
-    this.aiPlanningEntries = [];
-    this.aiDecorIdeas = [];
-
-    this.api.post<SuggestCategoryResponse>('/c-event/ai/suggest-category', {
-      need: this.aiNeed.trim(),
-    }).subscribe({
-      next: (res) => {
-        const category = String(res?.category || '').trim();
-        if (!category) {
-          this.aiLoading = false;
-          this.aiError = 'Aucune categorie n\'a ete suggeree.';
-          return;
+        this.events.set(loaded);
+        if (loaded.length > 0) {
+          this.selectedEvent.set(loaded[0]);
         }
-
-        this.aiCategory = category;
-
-        forkJoin({
-          checklist: this.api.get<ChecklistResponse>(`/c-event/ai/checklist/${category}`),
-          planning: this.api.get<PlanningResponse>(`/c-event/ai/planning/${category}`),
-          decor: this.api.get<DecorIdeasResponse>(`/c-event/ai/decor-ideas/${category}`),
-        }).subscribe({
-          next: ({ checklist, planning, decor }) => {
-            this.aiChecklist = Array.isArray(checklist?.checklist)
-              ? checklist.checklist
-              : [];
-            this.aiPlanningEntries = Object.entries(planning?.planning || {});
-            this.aiDecorIdeas = Array.isArray(decor?.ideas) ? decor.ideas : [];
-            this.aiLoading = false;
-          },
-          error: () => {
-            this.aiLoading = false;
-            this.aiError = 'Impossible de charger les recommandations detaillees.';
-          },
-        });
+        this.loading.set(false);
       },
       error: () => {
-        this.aiLoading = false;
-        this.aiError = 'Analyse indisponible pour le moment.';
+        this.error.set("Impossible de charger les offres C'Events.");
+        this.loading.set(false);
       },
     });
   }
 
-  applySuggestedCategory(): void {
-    if (!this.aiCategory) return;
-    this.selectedCategory = this.aiCategory;
+  selectEvent(item: EventItem): void {
+    this.selectedEvent.set(item);
+    this.bookingMessage.set(null);
+    this.bookingError.set(null);
+  }
 
-    const firstMatch = this.filteredEvents[0];
+  onEventImageError(id: string): void {
+    this.events.update((arr) =>
+      arr.map((item) => (item.id === id ? { ...item, images: [] } : item)),
+    );
+  }
+
+  runAiAssistant(): void {
+    this.aiError.set(null);
+    this.aiLoading.set(true);
+    this.aiCategory.set('');
+    this.aiChecklist.set([]);
+    this.aiPlanningEntries.set([]);
+    this.aiDecorIdeas.set([]);
+
+    this.api
+      .post<SuggestCategoryResponse>('/c-event/ai/suggest-category', {
+        need: this.aiNeed().trim(),
+      })
+      .subscribe({
+        next: (res) => {
+          const category = String(res?.category || '').trim();
+          if (!category) {
+            this.aiLoading.set(false);
+            this.aiError.set("Aucune categorie n'a ete suggeree.");
+            return;
+          }
+
+          this.aiCategory.set(category);
+
+          forkJoin({
+            checklist: this.api.get<ChecklistResponse>(`/c-event/ai/checklist/${category}`),
+            planning: this.api.get<PlanningResponse>(`/c-event/ai/planning/${category}`),
+            decor: this.api.get<DecorIdeasResponse>(`/c-event/ai/decor-ideas/${category}`),
+          }).subscribe({
+            next: ({ checklist, planning, decor }) => {
+              this.aiChecklist.set(
+                Array.isArray(checklist?.checklist) ? checklist.checklist : [],
+              );
+              this.aiPlanningEntries.set(
+                Object.entries(planning?.planning || {}) as Array<[string, string]>,
+              );
+              this.aiDecorIdeas.set(Array.isArray(decor?.ideas) ? decor.ideas : []);
+              this.aiLoading.set(false);
+            },
+            error: () => {
+              this.aiLoading.set(false);
+              this.aiError.set('Impossible de charger les recommandations detaillees.');
+            },
+          });
+        },
+        error: () => {
+          this.aiLoading.set(false);
+          this.aiError.set('Analyse indisponible pour le moment.');
+        },
+      });
+  }
+
+  applySuggestedCategory(): void {
+    const cat = this.aiCategory();
+    if (!cat) return;
+    this.selectedCategory.set(cat);
+
+    const firstMatch = this.filteredEvents()[0];
     if (firstMatch) {
       this.selectEvent(firstMatch);
     }
   }
 
   submitBooking(): void {
-    this.bookingMessage = null;
-    this.bookingError = null;
+    this.bookingMessage.set(null);
+    this.bookingError.set(null);
 
-    if (!this.selectedEvent) {
-      this.bookingError = 'Selectionnez un evenement avant de reserver.';
+    const event = this.selectedEvent();
+    if (!event) {
+      this.bookingError.set('Selectionnez un evenement avant de reserver.');
       return;
     }
 
-    if (!this.bookingDate || !this.bookingLocation.trim()) {
-      this.bookingError = 'Renseignez la date et le lieu de votre evenement.';
+    const date = this.bookingDate();
+    const location = this.bookingLocation().trim();
+
+    if (!date || !location) {
+      this.bookingError.set('Renseignez la date et le lieu de votre evenement.');
       return;
     }
 
@@ -741,61 +798,56 @@ export class EventsPublicComponent implements OnInit {
       return;
     }
 
-    const optionsPayload = this.bookingOptions.trim()
+    const options = this.bookingOptions().trim()
       ? {
-          notes: this.bookingOptions.trim(),
+          notes: this.bookingOptions().trim(),
           source: 'public-events-form',
-          suggestedCategory: this.aiCategory || undefined,
+          suggestedCategory: this.aiCategory() || undefined,
         }
       : undefined;
 
     const payload: BookingPayload = {
-      eventId: this.selectedEvent.id,
-      eventDate: this.bookingDate,
-      location: this.bookingLocation.trim(),
-      options: optionsPayload,
-      paymentProvider: this.bookingPaymentProvider,
+      eventId: event.id,
+      eventDate: date,
+      location,
+      options,
+      paymentProvider: this.bookingPaymentProvider(),
     };
 
-    this.bookingLoading = true;
+    this.bookingLoading.set(true);
 
-    this.api.post<any>('/c-event/bookings', payload).subscribe({
+    this.api.post<Record<string, unknown>>('/c-event/bookings', payload).subscribe({
       next: (res) => {
-        this.bookingLoading = false;
-        const bookingIdValue = res?.booking?.id || res?.id;
+        this.bookingLoading.set(false);
+        const bookingIdValue = (res?.['booking'] as Record<string, unknown>)?.['id'] || res?.['id'];
         const bookingId = bookingIdValue ? ` (#${bookingIdValue})` : '';
-        this.bookingMessage = `Reservation creee avec succes${bookingId}.`;
+        this.bookingMessage.set(`Reservation creee avec succes${bookingId}.`);
 
-        const redirectUrl = res?.payment?.redirectUrl || res?.redirectUrl;
+        const redirectUrl = (res?.['payment'] as Record<string, unknown>)?.['redirectUrl'] || res?.['redirectUrl'];
         if (redirectUrl) {
-          window.location.href = redirectUrl;
+          window.location.href = String(redirectUrl);
           return;
         }
 
         this.clearBookingForm(false);
       },
-      error: (err) => {
-        this.bookingLoading = false;
-        this.bookingError =
-          err?.error?.message ||
-          'Impossible de creer la reservation pour le moment.';
+      error: (err: { error?: { message?: string } }) => {
+        this.bookingLoading.set(false);
+        this.bookingError.set(
+          err?.error?.message || 'Impossible de creer la reservation pour le moment.',
+        );
       },
     });
   }
 
   clearBookingForm(resetMessages = true): void {
-    this.bookingDate = '';
-    this.bookingLocation = '';
-    this.bookingOptions = '';
-    this.bookingPaymentProvider = 'orange_money';
+    this.bookingDate.set('');
+    this.bookingLocation.set('');
+    this.bookingOptions.set('');
+    this.bookingPaymentProvider.set('orange_money');
     if (resetMessages) {
-      this.bookingMessage = null;
-      this.bookingError = null;
+      this.bookingMessage.set(null);
+      this.bookingError.set(null);
     }
-  }
-
-  stars(rating: number): number[] {
-    const rounded = Math.round(Number(rating || 0));
-    return [1, 2, 3, 4, 5].map((i) => (i <= rounded ? 1 : 0));
   }
 }

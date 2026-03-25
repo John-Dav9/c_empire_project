@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsArray, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsArray, IsUUID, ValidateIf } from 'class-validator';
 import { DeliveryOption } from '../order.entity';
 
 export class CreateOrderDto {
@@ -21,4 +21,9 @@ export class CreateOrderDto {
 
   @IsEnum(DeliveryOption)
   deliveryOption: DeliveryOption;
+
+  /** Requis uniquement si deliveryOption === RELAY */
+  @ValidateIf((o: CreateOrderDto) => o.deliveryOption === DeliveryOption.RELAY)
+  @IsUUID('4')
+  relayPointId?: string;
 }

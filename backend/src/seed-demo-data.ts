@@ -536,7 +536,7 @@ async function seedShopOrders(
     }
 
     const deliveryOption =
-      i % 3 === 0 ? DeliveryOption.CEXPRESS : DeliveryOption.OTHER;
+      i % 3 === 0 ? DeliveryOption.CEXPRESS : DeliveryOption.FREE;
     const deliveryFee = deliveryOption === DeliveryOption.CEXPRESS ? 1500 : 0;
     const promoDiscount =
       i % 5 === 0 ? Number((subtotal * 0.08).toFixed(2)) : 0;

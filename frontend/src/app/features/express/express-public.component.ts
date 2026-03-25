@@ -1,8 +1,16 @@
-import { AfterViewInit, Component, HostListener, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 
 type ExpressOffer = {
@@ -18,8 +26,9 @@ type ExpressOffer = {
 
 @Component({
   selector: 'app-express-public',
-  standalone: true,
-  imports: [CommonModule, MatIconModule, RouterLink, FormsModule],
+  imports: [MatIconModule, RouterLink, FormsModule, DecimalPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:scroll)': 'onWindowScroll()' },
   template: `
     <section class="express-page page-enter">
       <header class="top-strip app-shell-card">
@@ -29,14 +38,15 @@ type ExpressOffer = {
       </header>
 
       <nav class="section-nav app-shell-card">
-        <button
-          type="button"
-          *ngFor="let section of sectionLinks"
-          [class.active]="activeSection === section.id"
-          (click)="scrollToSection(section.id)"
-        >
-          {{ section.label }}
-        </button>
+        @for (section of sectionLinks; track section.id) {
+          <button
+            type="button"
+            [class.active]="activeSection() === section.id"
+            (click)="scrollToSection(section.id)"
+          >
+            {{ section.label }}
+          </button>
+        }
       </nav>
 
       <section class="hero app-shell-card" id="hero">
@@ -69,7 +79,9 @@ type ExpressOffer = {
       <section class="trust app-shell-card" id="trust">
         <h2>Des entreprises nous confient leurs flux sortants</h2>
         <div class="logo-row">
-          <span *ngFor="let logo of trustedBrands">{{ logo }}</span>
+          @for (logo of trustedBrands; track logo) {
+            <span>{{ logo }}</span>
+          }
         </div>
       </section>
 
@@ -102,15 +114,15 @@ type ExpressOffer = {
         <div class="calc-form">
           <label>
             Volume mensuel
-            <input type="number" min="0" [(ngModel)]="monthlyVolume" />
+            <input type="number" min="0" [ngModel]="monthlyVolume()" (ngModelChange)="monthlyVolume.set($event)" />
           </label>
           <label>
             Cout moyen actuel (XAF)
-            <input type="number" min="0" [(ngModel)]="averageCurrentCost" />
+            <input type="number" min="0" [ngModel]="averageCurrentCost()" (ngModelChange)="averageCurrentCost.set($event)" />
           </label>
           <div class="result">
             <span>Economies estimees (20%)</span>
-            <strong>{{ estimatedSavings | currency:'XOF' }}</strong>
+            <strong>{{ formatPrice(estimatedSavings()) }}</strong>
           </div>
         </div>
       </section>
@@ -128,9 +140,10 @@ type ExpressOffer = {
           <input
             type="text"
             placeholder="Rechercher une offre..."
-            [(ngModel)]="searchTerm"
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
           />
-          <select [(ngModel)]="etaFilter">
+          <select [ngModel]="etaFilter()" (ngModelChange)="etaFilter.set($event)">
             <option value="">Tous les delais</option>
             <option value="urgent">Urgent</option>
             <option value="standard">Standard</option>
@@ -138,31 +151,44 @@ type ExpressOffer = {
           </select>
         </div>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
-        <div class="loading" *ngIf="loading">Chargement des offres logistiques...</div>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
+        @if (loading()) {
+          <div class="loading">Chargement des offres logistiques...</div>
+        }
 
-        <section class="grid" *ngIf="!loading">
-          <article class="card" *ngFor="let item of filteredOffers">
-            <div class="icon-wrap"><mat-icon>local_shipping</mat-icon></div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-            <div class="meta">
-              <span>{{ item.eta }}</span>
-              <strong>{{ formatPrice(item.baseEstimate) }}</strong>
-            </div>
-            <div class="rating" *ngIf="(item.reviewsCount || 0) > 0; else noRating">
-              <span class="stars">
-                <mat-icon *ngFor="let s of stars(item.avgRating || 0)">{{ s ? 'star' : 'star_border' }}</mat-icon>
-              </span>
-              <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
-              <span class="count">({{ item.reviewsCount }} avis)</span>
-            </div>
-            <ng-template #noRating><p class="no-rating">Pas encore note</p></ng-template>
-            <div class="actions">
-              <a [routerLink]="['/express/request']">Demander une course</a>
-            </div>
-          </article>
-        </section>
+        @if (!loading()) {
+          <section class="grid">
+            @for (item of filteredOffers(); track item.id) {
+              <article class="card">
+                <div class="icon-wrap"><mat-icon>local_shipping</mat-icon></div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description }}</p>
+                <div class="meta">
+                  <span>{{ item.eta }}</span>
+                  <strong>{{ formatPrice(item.baseEstimate) }}</strong>
+                </div>
+                @if ((item.reviewsCount || 0) > 0) {
+                  <div class="rating">
+                    <span class="stars">
+                      @for (s of stars(item.avgRating || 0); track $index) {
+                        <mat-icon>{{ s ? 'star' : 'star_border' }}</mat-icon>
+                      }
+                    </span>
+                    <span class="score">{{ (item.avgRating || 0) | number:'1.1-1' }}/5</span>
+                    <span class="count">({{ item.reviewsCount }} avis)</span>
+                  </div>
+                } @else {
+                  <p class="no-rating">Pas encore note</p>
+                }
+                <div class="actions">
+                  <a [routerLink]="['/express/request']">Demander une course</a>
+                </div>
+              </article>
+            }
+          </section>
+        }
       </section>
 
       <section class="process app-shell-card" id="process">
@@ -398,9 +424,19 @@ type ExpressOffer = {
   `],
 })
 export class ExpressPublicComponent implements OnInit, AfterViewInit {
-  offers: ExpressOffer[] = [];
-  trustedBrands = ['KDG Academy', 'Balta Group', 'Eco Services', 'Banking Partners', 'Retail Network'];
-  sectionLinks = [
+  private readonly api = inject(ApiService);
+
+  readonly offers = signal<ExpressOffer[]>([]);
+  readonly activeSection = signal('hero');
+  readonly searchTerm = signal('');
+  readonly etaFilter = signal('');
+  readonly monthlyVolume = signal(400);
+  readonly averageCurrentCost = signal(3500);
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+
+  readonly trustedBrands = ['KDG Academy', 'Balta Group', 'Eco Services', 'Banking Partners', 'Retail Network'];
+  readonly sectionLinks = [
     { id: 'hero', label: 'Presentation' },
     { id: 'trust', label: 'Clients' },
     { id: 'benefits', label: 'Avantages' },
@@ -408,53 +444,18 @@ export class ExpressPublicComponent implements OnInit, AfterViewInit {
     { id: 'offers', label: 'Offres' },
     { id: 'process', label: 'Process' },
   ];
-  activeSection = 'hero';
-  searchTerm = '';
-  etaFilter = '';
-  monthlyVolume = 400;
-  averageCurrentCost = 3500;
-  loading = true;
-  error: string | null = null;
 
-  constructor(private readonly api: ApiService) {}
+  readonly estimatedSavings = computed(() =>
+    Math.max(
+      0,
+      Number(this.monthlyVolume() || 0) * Number(this.averageCurrentCost() || 0) * 0.2,
+    ),
+  );
 
-  ngOnInit(): void {
-    this.api.get<ExpressOffer[]>('/c-express/public/services').subscribe({
-      next: (data) => {
-        this.offers = Array.isArray(data) ? data : [];
-        this.loading = false;
-      },
-      error: () => {
-        this.error = "Impossible de charger les offres C'Express.";
-        this.loading = false;
-      },
-    });
-  }
-
-  ngAfterViewInit(): void {
-    this.updateActiveSection();
-  }
-
-  @HostListener('window:scroll')
-  onWindowScroll(): void {
-    this.updateActiveSection();
-  }
-
-  scrollToSection(sectionId: string): void {
-    const section = document.getElementById(sectionId);
-    if (!section) return;
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    this.activeSection = sectionId;
-  }
-
-  get estimatedSavings(): number {
-    return Math.max(0, Number(this.monthlyVolume || 0) * Number(this.averageCurrentCost || 0) * 0.2);
-  }
-
-  get filteredOffers(): ExpressOffer[] {
-    const q = this.searchTerm.trim().toLowerCase();
-    const filter = this.etaFilter.trim().toLowerCase();
-    return this.offers.filter((item) => {
+  readonly filteredOffers = computed(() => {
+    const q = this.searchTerm().trim().toLowerCase();
+    const filter = this.etaFilter().trim().toLowerCase();
+    return this.offers().filter((item) => {
       const matchesText =
         !q ||
         String(item.title || '').toLowerCase().includes(q) ||
@@ -463,6 +464,34 @@ export class ExpressPublicComponent implements OnInit, AfterViewInit {
       const matchesEta = !filter || eta.includes(filter);
       return matchesText && matchesEta;
     });
+  });
+
+  ngOnInit(): void {
+    this.api.get<ExpressOffer[]>('/c-express/public/services').subscribe({
+      next: (data) => {
+        this.offers.set(Array.isArray(data) ? data : []);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.error.set("Impossible de charger les offres C'Express.");
+        this.loading.set(false);
+      },
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.updateActiveSection();
+  }
+
+  onWindowScroll(): void {
+    this.updateActiveSection();
+  }
+
+  scrollToSection(sectionId: string): void {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.activeSection.set(sectionId);
   }
 
   stars(rating: number): number[] {
@@ -482,7 +511,7 @@ export class ExpressPublicComponent implements OnInit, AfterViewInit {
       if (!element) continue;
       const rect = element.getBoundingClientRect();
       if (rect.top <= viewportOffset && rect.bottom > viewportOffset) {
-        this.activeSection = section.id;
+        this.activeSection.set(section.id);
         return;
       }
     }
