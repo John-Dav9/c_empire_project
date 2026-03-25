@@ -86,6 +86,12 @@ import { MatIconModule } from '@angular/material/icon';
       background-color: #c62828;
       color: white;
     }
+    @media (max-width: 480px) {
+      .cancel-container { padding: 1rem; }
+      .cancel-card { padding: 2rem 1.25rem; }
+      .title { font-size: 1.4rem; }
+      .cancel-icon { font-size: 3.5rem; width: 3.5rem; height: 3.5rem; }
+    }
   `]
 })
 export class PaymentCancelComponent {}

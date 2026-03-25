@@ -69,6 +69,11 @@ import { MatIconModule } from '@angular/material/icon';
       background-color: #c62828;
       color: white;
     }
+    @media (max-width: 480px) {
+      .not-found-container { padding: 1.25rem; }
+      .error-code { font-size: 5.5rem; letter-spacing: -2px; }
+      .title { font-size: 1.35rem; }
+    }
   `]
 })
 export class NotFoundComponent {}

@@ -21,6 +21,7 @@ export class AdminLayoutComponent {
   private readonly router = inject(Router);
 
   readonly sidebarCollapsed = signal(false);
+  readonly mobileMenuOpen = signal(false);
   readonly currentUser = this.authService.getCurrentUser();
   readonly isSuperAdmin = this.currentUser?.role === 'super_admin';
 
@@ -57,6 +58,14 @@ export class AdminLayoutComponent {
 
   toggleSidebar(): void {
     this.sidebarCollapsed.update((v) => !v);
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen.update((v) => !v);
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen.set(false);
   }
 
   logout(): void {

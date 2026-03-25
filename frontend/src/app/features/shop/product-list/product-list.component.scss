@@ -309,14 +309,59 @@ mat-card-actions {
 
   .cart-side {
     position: static;
+    // Affiche le panier comme une bannière horizontale compacte sur tablette
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 12px;
   }
 }
 
-@media (max-width: 760px) {
+/* Tablette (< 860px) — grille 2 colonnes fixes */
+@media (max-width: 860px) {
   .market-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+/* Mobile (< 640px) */
+@media (max-width: 640px) {
+  .header {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .header h1 {
+    font-size: 1.3rem;
+  }
+
+  .market-strip {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr); // 2 colonnes sur mobile : plus agréable que 1 colonne
+    gap: 10px;
+  }
+
+  .cart-side {
+    grid-template-columns: 1fr 1fr; // 2 colonnes sur mobile
+  }
+
+  mat-card-actions {
+    grid-template-columns: 1fr auto auto;
+    gap: 6px;
+  }
+}
+
+/* Très petits téléphones (< 400px) — 1 colonne */
+@media (max-width: 400px) {
   .products-grid {
     grid-template-columns: 1fr;
   }

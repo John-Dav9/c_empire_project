@@ -1,10 +1,22 @@
+// ============================================================
+// ADMIN LAYOUT — Responsive (desktop + tablet + mobile)
+// ============================================================
+
+.mobile-header {
+  display: none; // Masqué sur desktop — affiché via media query
+}
+
+.mobile-overlay {
+  display: none; // Masqué sur desktop
+}
+
 .admin-layout {
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 70px;
   --sidebar-gap: 18px;
 
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   background: transparent;
 
   .sidebar {
@@ -13,7 +25,7 @@
     color: #fff;
     display: flex;
     flex-direction: column;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, transform 0.3s ease;
     position: fixed;
     height: 100vh;
     z-index: 1000;
@@ -183,9 +195,117 @@
     overflow-y: auto;
     background: transparent;
     padding-right: 12px;
+    min-width: 0; // Empêche le contenu de déborder
 
     &.expanded {
       margin-left: calc(var(--sidebar-collapsed-width) + var(--sidebar-gap));
+    }
+  }
+}
+
+// ============================================================
+// TABLET — Réduction de la sidebar à partir de 1024px
+// ============================================================
+@media (max-width: 1024px) {
+  .admin-layout {
+    --sidebar-width: 240px;
+    --sidebar-gap: 12px;
+  }
+}
+
+// ============================================================
+// MOBILE — Sidebar en overlay à partir de 768px
+// ============================================================
+@media (max-width: 768px) {
+  // Header sticky mobile avec bouton hamburger
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 990;
+    height: 56px;
+    padding: 0 14px;
+    background: linear-gradient(135deg, #2f2a23, #4f4338);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+
+    .mobile-menu-btn {
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    }
+
+    .mobile-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #ffd8b6;
+    }
+  }
+
+  // Overlay semi-transparent qui ferme le menu au tap
+  .mobile-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+
+    &.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+  }
+
+  .admin-layout {
+    flex-direction: column;
+
+    .sidebar {
+      // La sidebar sort depuis la gauche en overlay
+      transform: translateX(-100%);
+      top: 0;
+      height: 100dvh; // dvh = dynamic viewport height (tient compte des barres mobiles)
+
+      &.mobile-open {
+        transform: translateX(0);
+      }
+
+      // Sur mobile la sidebar garde sa largeur complète, jamais collapsed
+      &.collapsed {
+        width: var(--sidebar-width);
+
+        .nav-label {
+          display: block;
+        }
+
+        .nav-link {
+          justify-content: flex-start;
+        }
+      }
+    }
+
+    .main-content {
+      // Le contenu prend toute la largeur sur mobile
+      margin-left: 0 !important;
+      padding-right: 0;
+      min-height: calc(100vh - 56px); // Soustrait la hauteur du header mobile
     }
   }
 }

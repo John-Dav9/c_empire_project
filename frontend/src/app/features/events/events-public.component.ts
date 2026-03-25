@@ -611,6 +611,11 @@ type BookingPayload = {
       .section-head { flex-direction:column; align-items:flex-start; }
       .booking-actions { justify-content:flex-start; }
     }
+    @media (max-width: 480px) {
+      .hero-copy { padding:14px 12px; gap:8px; }
+      .planner, .catalog, .booking, .process { padding:12px; }
+      .kpis { grid-template-columns:1fr 1fr; }
+    }
   `],
 })
 export class EventsPublicComponent implements OnInit {

@@ -1,7 +1,18 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const fs = require('node:fs');
 
 const cwd = process.cwd();
+
+// ✅ Injection de config.js depuis le template (si API_BASE_URL est défini)
+const apiBaseUrl = process.env.API_BASE_URL || '';
+if (apiBaseUrl) {
+  const templatePath = path.join(cwd, 'public', 'config.template.js');
+  const outputPath = path.join(cwd, 'public', 'config.js');
+  const template = fs.readFileSync(templatePath, 'utf8');
+  fs.writeFileSync(outputPath, template.replace('${API_BASE_URL}', apiBaseUrl));
+  console.log(`[build-safe] config.js injecté avec apiBaseUrl: "${apiBaseUrl}"`);
+}
 const ngCliPath = path.join(cwd, 'node_modules', '@angular', 'cli', 'bin', 'ng.js');
 const tscPath = path.join(cwd, 'node_modules', 'typescript', 'bin', 'tsc');
 const esbuildPath = path.join(cwd, 'node_modules', '@esbuild', 'win32-x64', 'esbuild.exe');

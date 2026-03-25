@@ -314,6 +314,21 @@ type GrillPack = {
         .quick-row, .quality-grid { grid-template-columns:1fr; }
         .menu-head { flex-direction:column; align-items:flex-start; }
         .top-promo a { margin-left:0; }
+        .grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .hero h1 { font-size:clamp(1.45rem,6vw,2.2rem); }
+      }
+      @media (max-width: 480px) {
+        .grill-page { gap:10px; }
+        .hero-copy { padding:16px 12px; gap:8px; }
+        .hero h1 { font-size:1.45rem; }
+        .hero-meta strong { font-size:1.4rem; }
+        .grid { grid-template-columns:1fr; }
+        .top-promo { padding:8px 10px; gap:8px; font-size:.88rem; }
+        .grill-nav { padding:8px; gap:6px; }
+        .grill-nav a { padding:7px 10px; font-size:.85rem; }
+        .menu-shell { padding:12px; }
+        .quality-grid article { padding:10px; }
+        .app-block { padding:14px; gap:10px; }
       }
     `,
   ],

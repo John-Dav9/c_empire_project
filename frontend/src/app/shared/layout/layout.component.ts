@@ -341,6 +341,34 @@ import { SiteFooterComponent } from '../footer/site-footer.component';
           justify-content: center;
         }
       }
+
+      /* Très petits écrans (< 480px) — réduction des marges */
+      @media (max-width: 480px) {
+        .toolbar {
+          margin: 8px;
+          top: 8px;
+          padding: 0 8px;
+          height: 60px;
+        }
+
+        .content {
+          padding: 12px 10px 28px;
+        }
+
+        .brand {
+          padding: 6px 8px;
+          margin-right: 4px;
+          gap: 6px;
+        }
+
+        .brand-logo {
+          height: 24px;
+        }
+
+        .toolbar-right {
+          gap: 6px;
+        }
+      }
     `,
   ],
 })

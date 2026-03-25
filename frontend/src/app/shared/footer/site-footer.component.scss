@@ -196,27 +196,33 @@
 @media (max-width: 1180px) {
   .footer-top {
     grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 24px 24px 20px;
   }
 }
 
 @media (max-width: 760px) {
   .site-footer {
     margin: 18px 10px 10px;
-  }
-
-  .footer-top,
-  .footer-middle,
-  .footer-bottom {
-    padding-left: 16px;
-    padding-right: 16px;
+    border-radius: 18px;
   }
 
   .footer-top {
     grid-template-columns: 1fr;
+    padding: 20px 16px 16px;
+    gap: 18px;
   }
 
   .footer-middle {
+    padding: 16px;
     grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .footer-bottom {
+    padding: 12px 16px 16px;
+    gap: 10px 18px;
+    font-size: 0.85rem;
   }
 
   .feature-grid {
@@ -224,7 +230,7 @@
   }
 
   .store-badges {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr; // 2 badges côte à côte sur mobile
   }
 
   .seller-card {
@@ -233,5 +239,25 @@
 
   .seller-card img {
     height: 120px;
+    object-position: center 30%;
+  }
+}
+
+/* Très petits téléphones */
+@media (max-width: 400px) {
+  .site-footer {
+    margin: 12px 6px 6px;
+    border-radius: 14px;
+  }
+
+  .store-badges {
+    grid-template-columns: 1fr; // 1 colonne sur très petit écran
+  }
+
+  .footer-top,
+  .footer-middle,
+  .footer-bottom {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 }

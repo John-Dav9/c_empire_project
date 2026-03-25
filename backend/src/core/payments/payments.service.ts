@@ -98,20 +98,24 @@ export class PaymentsService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  /**
+   * Retourne l'implémentation du provider de paiement correspondant.
+   * Orange Money, MTN MoMo et Wave partagent le même provider mobile money.
+   */
   private getProvider(provider: PaymentProvider): IPaymentProvider {
     switch (provider) {
       case PaymentProvider.ORANGE_MONEY:
       case PaymentProvider.MTN_MOMO:
       case PaymentProvider.WAVE:
-        return this.mobileMoneyProvider;
+        return this.mobileMoneyProvider; // Provider mobile money africain (mutualisé)
       case PaymentProvider.CARD:
-        return this.cardPaymentProvider;
+        return this.cardPaymentProvider; // Carte bancaire (mode mock en dev)
       case PaymentProvider.STRIPE:
-        return this.stripeProvider;
+        return this.stripeProvider; // Stripe (cartes internationales)
       case PaymentProvider.PAYPAL:
-        return this.paypalProvider;
+        return this.paypalProvider; // PayPal (mode mock en dev)
       case PaymentProvider.WALLET:
-        return this.walletProvider;
+        return this.walletProvider; // Portefeuille interne (mode mock en dev)
       default:
         throw new NotFoundException(
           `Payment provider not supported: ${provider}`,
@@ -119,6 +123,11 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Protège contre l'utilisation de providers fictifs (CARD, PAYPAL, WALLET) en production.
+   * Ces providers n'effectuent pas de vrais appels API — ils simulent le paiement.
+   * En prod, seuls Stripe, Orange Money, MTN MoMo et Wave sont autorisés.
+   */
   private ensureMockPaymentsAllowed(provider: PaymentProvider) {
     const mockProviders = new Set<PaymentProvider>([
       PaymentProvider.CARD,
@@ -148,6 +157,13 @@ export class PaymentsService {
     return this.initPayment(payload);
   }
 
+  /**
+   * Initialise un paiement en 4 étapes :
+   * 1. Résolution de la ressource à payer (récupère le montant + vérifie l'appartenance)
+   * 2. Création du paiement en base avec statut PENDING
+   * 3. Appel au provider de paiement (Stripe, mobile money, etc.)
+   * 4. Mise à jour du paiement avec le providerTransactionId retourné
+   */
   async initPayment(payload: PaymentInitPayload) {
     if (!payload.provider)
       throw new BadRequestException('provider is required');
@@ -156,9 +172,12 @@ export class PaymentsService {
     if (!payload.referenceId)
       throw new BadRequestException('referenceId is required');
 
+    // Récupère la ressource liée (commande, réservation, etc.) et son montant
     const resolved = await this.resolvePayable(payload);
+    // Bloque les providers fictifs en production
     this.ensureMockPaymentsAllowed(payload.provider);
 
+    // Sécurité : un utilisateur ne peut payer que ses propres ressources
     if (
       payload.userId &&
       resolved.ownerUserId &&
@@ -168,13 +187,16 @@ export class PaymentsService {
     }
 
     const providerImpl = this.getProvider(payload.provider);
+    // Crée une référence User partielle (seulement l'id) pour l'association TypeORM
     const userRef = payload.userId
       ? ({ id: payload.userId } as User)
       : undefined;
 
+    // Enregistre le paiement en base AVANT d'appeler le provider
+    // → permet de tracer les tentatives même en cas d'échec provider
     const payment = this.paymentRepo.create({
       amount: resolved.amount,
-      currency: payload.currency ?? 'XAF',
+      currency: payload.currency ?? 'XAF', // XAF = Franc CFA (devise par défaut)
       provider: payload.provider,
       user: userRef,
       referenceType: payload.referenceType,
@@ -199,13 +221,16 @@ export class PaymentsService {
 
     let result;
     try {
+      // Appel externe au provider (Stripe API, MTN MoMo API, etc.)
       result = await providerImpl.initPayment(initParams);
     } catch (error) {
+      // En cas d'erreur provider, marque le paiement comme échoué et propage l'erreur
       payment.status = PaymentStatus.FAILED;
       await this.paymentRepo.save(payment);
       throw error;
     }
 
+    // Le provider doit toujours retourner un identifiant de transaction pour le suivi
     if (!result?.providerTransactionId) {
       payment.status = PaymentStatus.FAILED;
       await this.paymentRepo.save(payment);
@@ -214,6 +239,7 @@ export class PaymentsService {
       );
     }
 
+    // Sauvegarde l'identifiant provider pour pouvoir vérifier le statut plus tard (webhook / polling)
     payment.providerTransactionId = result.providerTransactionId;
     await this.paymentRepo.save(payment);
 
@@ -223,8 +249,8 @@ export class PaymentsService {
       provider: payment.provider,
       amount: payment.amount,
       currency: payment.currency,
-      redirectUrl: result.redirectUrl ?? null,
-      instructions: result.instructions ?? null,
+      redirectUrl: result.redirectUrl ?? null,       // URL de redirection (ex: Stripe Checkout)
+      instructions: result.instructions ?? null,     // Instructions pour mobile money
     };
   }
 
@@ -257,6 +283,13 @@ export class PaymentsService {
     return payment;
   }
 
+  /**
+   * Reçoit et traite les notifications de paiement envoyées par les providers (webhooks).
+   * Flux : provider → POST /payments/webhook/:provider → verify() → onPaymentSuccess()
+   *
+   * Si PAYMENT_WEBHOOK_STRICT=true en prod, vérifie la signature HMAC du webhook.
+   * Cela garantit que la requête provient bien du provider et non d'un tiers malveillant.
+   */
   async handleWebhook(
     provider: string,
     payload: PaymentWebhookPayload,
@@ -265,6 +298,7 @@ export class PaymentsService {
   ) {
     const providerKey = provider as PaymentProvider;
     const strictMode = process.env.PAYMENT_WEBHOOK_STRICT === 'true';
+    // Vérifie la signature si on a le rawBody ET (mode strict OU secret configuré pour ce provider)
     const shouldVerifySignature =
       rawBody && (strictMode || WebhookVerifier.hasSecret(providerKey));
 
@@ -273,6 +307,7 @@ export class PaymentsService {
       if (!ok) throw new BadRequestException('Invalid webhook signature');
     }
 
+    // Extrait l'identifiant de transaction depuis le payload (chaque provider a son propre format)
     const providerTransactionId =
       payload.providerTransactionId ||
       payload.transactionId ||
@@ -281,6 +316,7 @@ export class PaymentsService {
     if (!providerTransactionId)
       throw new BadRequestException('Missing providerTransactionId');
 
+    // Délègue à verify() qui met à jour le statut et déclenche onPaymentSuccess si nécessaire
     return this.verify(providerTransactionId);
   }
 
@@ -429,8 +465,18 @@ export class PaymentsService {
   // ==============================
   // PAYMENT SUCCESS — via EventEmitter
   // ==============================
+  /**
+   * Appelée dès qu'un paiement passe au statut SUCCESS (via verify() ou handleWebhook()).
+   *
+   * Architecture découplée via EventEmitter2 :
+   * - PaymentsService émet 'payment.success' → il ne connaît pas les modules métier
+   * - OrderService, GrillOrdersService, etc. écoutent via @OnEvent('payment.success')
+   * - Chacun gère sa propre logique (marquer comme payé, créer une livraison, etc.)
+   *
+   * En plus de l'événement, génère une facture PDF (pour C'Shop) et envoie une notification in-app.
+   */
   private async onPaymentSuccess(payment: Payment) {
-    // Émet l'événement → chaque module gère sa propre logique
+    // Émet l'événement → chaque module abonné réagit de façon indépendante
     const event = new PaymentSuccessEvent(
       payment.id,
       payment.referenceType,
@@ -441,25 +487,30 @@ export class PaymentsService {
     );
     this.eventEmitter.emit('payment.success', event);
 
-    // Facture PDF pour commandes C'SHOP
+    // Génération de facture PDF uniquement pour les commandes C'Shop
     if (payment.referenceType === PaymentReferenceType.SHOP_ORDER) {
       const order = await this.orderRepo.findOne({
         where: { id: payment.referenceId },
-        relations: ['items'],
+        relations: ['items'], // Nécessaire pour inclure les lignes de commande dans la facture
       });
       if (order) {
         await this.invoicesService.generateInvoicePdf(order, payment);
       }
     }
 
-    // Notifications centralisées (NotificationsService pas circulaire)
+    // Notification in-app pour informer l'utilisateur que son paiement est confirmé
     await this.sendSuccessNotification(payment);
   }
 
+  /**
+   * Envoie une notification in-app à l'utilisateur après paiement réussi.
+   * Le label humain est déterminé selon le type de ressource payée.
+   */
   private async sendSuccessNotification(payment: Payment) {
     const userId = payment.user?.id;
-    if (!userId) return;
+    if (!userId) return; // Pas de notification si le paiement n'est pas lié à un utilisateur
 
+    // Map chaque type de référence vers un libellé lisible pour la notification
     const labels: Record<PaymentReferenceType, string> = {
       [PaymentReferenceType.SHOP_ORDER]: "C'SHOP",
       [PaymentReferenceType.EXPRESS_DELIVERY]: "C'EXPRESS livraison",

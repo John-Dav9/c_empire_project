@@ -231,3 +231,20 @@
     grid-row: 1 / 2;
   }
 }
+
+@media (max-width: 480px) {
+  .cart-container h1 {
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+  }
+
+  .cart-item {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .item-image {
+    width: 52px;
+    height: 52px;
+  }
+}

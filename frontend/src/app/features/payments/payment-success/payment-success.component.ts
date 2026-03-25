@@ -89,6 +89,12 @@ import { MatIconModule } from '@angular/material/icon';
       background-color: #2e7d32;
       color: white;
     }
+    @media (max-width: 480px) {
+      .success-container { padding: 1rem; }
+      .success-card { padding: 2rem 1.25rem; }
+      .title { font-size: 1.4rem; }
+      .success-icon { font-size: 3.5rem; width: 3.5rem; height: 3.5rem; }
+    }
   `]
 })
 export class PaymentSuccessComponent implements OnInit {

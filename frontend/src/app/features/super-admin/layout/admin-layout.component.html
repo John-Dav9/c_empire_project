@@ -1,6 +1,31 @@
 <div class="admin-layout">
+  <!-- Overlay mobile (backdrop) -->
+  <div
+    class="mobile-overlay"
+    [class.show]="mobileMenuOpen()"
+    (click)="closeMobileMenu()"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Header mobile (uniquement visible sur petit écran) -->
+  <header class="mobile-header">
+    <button
+      class="mobile-menu-btn"
+      (click)="toggleMobileMenu()"
+      [attr.aria-label]="mobileMenuOpen() ? 'Fermer le menu' : 'Ouvrir le menu'"
+      [attr.aria-expanded]="mobileMenuOpen()"
+    >
+      {{ mobileMenuOpen() ? '✕' : '☰' }}
+    </button>
+    <span class="mobile-title">C'EMPIRE Admin</span>
+  </header>
+
   <!-- Sidebar -->
-  <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
+  <aside
+    class="sidebar"
+    [class.collapsed]="sidebarCollapsed()"
+    [class.mobile-open]="mobileMenuOpen()"
+  >
     <div class="sidebar-header">
       @if (!sidebarCollapsed()) {
         <h2>C'EMPIRE</h2>
@@ -23,6 +48,7 @@
           [routerLinkActiveOptions]="{ exact: false }"
           class="nav-link"
           [attr.title]="sidebarCollapsed() ? item.label : null"
+          (click)="closeMobileMenu()"
         >
           <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
           @if (!sidebarCollapsed()) {

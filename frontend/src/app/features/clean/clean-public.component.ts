@@ -447,6 +447,15 @@ type CleanService = {
       .section-head { flex-direction:column; align-items:flex-start; }
       .kpi-row, .process-grid { grid-template-columns:1fr; }
     }
+    @media (max-width: 480px) {
+      .hero-copy, .split-copy { padding:14px 10px; gap:8px; }
+      .hero-copy h1 { font-size:1.6rem; }
+      .services, .process, .contact { padding:10px; }
+      .grid { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width: 400px) {
+      .grid { grid-template-columns:1fr; }
+    }
   `],
 })
 export class CleanPublicComponent implements OnInit {

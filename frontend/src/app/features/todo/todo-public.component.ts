@@ -195,6 +195,15 @@ type TodoServiceItem = {
     .error { background:#fff3ef; border:1px solid #f5c5b7; color:#b92016; border-radius:12px; padding:10px 12px; }
     @media (max-width: 980px) { .sim-grid { grid-template-columns:1fr 1fr; } .services-head { grid-template-columns:1fr; } .steps { grid-template-columns:1fr 1fr; } }
     @media (max-width: 760px) { .sim-grid, .steps { grid-template-columns:1fr; } }
+    @media (max-width: 480px) {
+      .hero { padding:14px; }
+      .hero h1 { font-size:1.5rem; }
+      .simulator, .services, .workflow { padding:12px; }
+      .grid { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width: 400px) {
+      .grid { grid-template-columns:1fr; }
+    }
   `],
 })
 export class TodoPublicComponent implements OnInit {
