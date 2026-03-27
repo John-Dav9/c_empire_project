@@ -1,6 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
+  DestroyRef,
   inject,
   OnInit,
   signal,
@@ -96,7 +98,7 @@ const STATUS_OPTIONS = [
 
       <!-- Filtres -->
       <div class="filters-row">
-        <select [(ngModel)]="filterStatus" (ngModelChange)="onFilterChange()" class="filter-select" aria-label="Filtrer par statut">
+        <select [ngModel]="filterStatus()" (ngModelChange)="onFilterChange($event)" class="filter-select" aria-label="Filtrer par statut">
           <option value="">Tous les statuts</option>
           @for (s of statusOptions; track s.value) {
             <option [value]="s.value">{{ s.label }}</option>
@@ -140,7 +142,7 @@ const STATUS_OPTIONS = [
                       <p class="address-text">{{ order.shippingAddress }}</p>
                     }
                   </td>
-                  <td class="items-count">{{ order.items?.length ?? 0 }} article{{ (order.items?.length ?? 0) > 1 ? 's' : '' }}</td>
+                  <td class="items-count">{{ order.items.length }} article{{ order.items.length > 1 ? 's' : '' }}</td>
                   <td class="amount">{{ order.total | currencyXaf }}</td>
                   <td>
                     <select
@@ -160,9 +162,9 @@ const STATUS_OPTIONS = [
                       <mat-icon>visibility</mat-icon>
                     </button>
                     @if (order.isPaid) {
-                      <a mat-icon-button [href]="invoiceUrl(order.id)" target="_blank" aria-label="Télécharger la facture">
+                      <button mat-icon-button (click)="downloadInvoice(order.id)" aria-label="Télécharger la facture">
                         <mat-icon>download</mat-icon>
-                      </a>
+                      </button>
                     }
                   </td>
                 </tr>
@@ -181,9 +183,9 @@ const STATUS_OPTIONS = [
         <!-- Pagination -->
         @if (totalPages() > 1) {
           <div class="pagination">
-            <button class="page-btn" (click)="goToPage(page - 1)" [disabled]="page === 1" aria-label="Page précédente">‹</button>
-            <span class="page-info">Page {{ page }} / {{ totalPages() }}</span>
-            <button class="page-btn" (click)="goToPage(page + 1)" [disabled]="page === totalPages()" aria-label="Page suivante">›</button>
+            <button class="page-btn" (click)="goToPage(page() - 1)" [disabled]="page() === 1" aria-label="Page précédente">‹</button>
+            <span class="page-info">Page {{ page() }} / {{ totalPages() }}</span>
+            <button class="page-btn" (click)="goToPage(page() + 1)" [disabled]="page() === totalPages()" aria-label="Page suivante">›</button>
           </div>
         }
 
@@ -221,7 +223,7 @@ const STATUS_OPTIONS = [
               </div>
 
               <div class="detail-section">
-                <h3>Articles ({{ detail()!.items?.length ?? 0 }})</h3>
+                <h3>Articles ({{ detail()!.items.length }})</h3>
                 <div class="items-list">
                   @for (item of detail()!.items; track item.id) {
                     <div class="item-row">
@@ -249,7 +251,7 @@ const STATUS_OPTIONS = [
                 </div>
               </div>
 
-              @if ((detail()!.assignees?.length ?? 0) > 0) {
+              @if (detail()!.assignees.length > 0) {
                 <div class="detail-section">
                   <h3>Employés assignés</h3>
                   @for (a of detail()!.assignees; track a.id) {
@@ -259,10 +261,10 @@ const STATUS_OPTIONS = [
               }
 
               @if (detail()!.isPaid) {
-                <a mat-stroked-button [href]="invoiceUrl(detail()!.id)" target="_blank" class="invoice-btn">
+                <button mat-stroked-button (click)="downloadInvoice(detail()!.id)" class="invoice-btn">
                   <mat-icon>download</mat-icon>
                   Télécharger la facture
-                </a>
+                </button>
               }
             </div>
           </aside>
@@ -351,7 +353,8 @@ const STATUS_OPTIONS = [
   `],
 })
 export class ShopOrdersComponent implements OnInit {
-  private readonly http = inject(HttpClient);
+  private readonly http        = inject(HttpClient);
+  private readonly destroyRef  = inject(DestroyRef);
 
   readonly orders     = signal<ShopOrder[]>([]);
   readonly loading    = signal(true);
@@ -360,10 +363,10 @@ export class ShopOrdersComponent implements OnInit {
   readonly detail     = signal<ShopOrder | null>(null);
   readonly total      = signal(0);
   readonly totalPages = signal(1);
+  readonly page       = signal(1);
+  readonly filterStatus = signal('');
 
-  page = 1;
   readonly pageSize = 20;
-  filterStatus = '';
   readonly statusOptions = STATUS_OPTIONS;
   readonly breadcrumbs = [
     { label: 'Super Admin', link: '/super-admin/dashboard' },
@@ -371,22 +374,31 @@ export class ShopOrdersComponent implements OnInit {
     { label: 'Commandes' },
   ];
 
-  readonly kpis = () => [
-    { label: 'Total',       count: this.total(),                                                                    color: '#1a1a2e' },
-    { label: 'En attente',  count: this.orders().filter(o => o.status === 'pending').length,                        color: '#e65100' },
-    { label: 'Payées',      count: this.orders().filter(o => o.isPaid).length,                                      color: '#2e7d32' },
-    { label: 'En cours',    count: this.orders().filter(o => ['preparing','shipped'].includes(o.status)).length,    color: '#1565c0' },
-    { label: 'Livrées',     count: this.orders().filter(o => o.status === 'delivered').length,                      color: '#2e7d32' },
-    { label: 'Annulées',    count: this.orders().filter(o => ['cancelled','refunded'].includes(o.status)).length,   color: '#c62828' },
-  ];
+  readonly kpis = computed(() => [
+    { label: 'Total',      count: this.total(),                                                                   color: '#1a1a2e' },
+    { label: 'En attente', count: this.orders().filter(o => o.status === 'pending').length,                       color: '#e65100' },
+    { label: 'Payées',     count: this.orders().filter(o => o.isPaid).length,                                     color: '#2e7d32' },
+    { label: 'En cours',   count: this.orders().filter(o => ['preparing','shipped'].includes(o.status)).length,   color: '#1565c0' },
+    { label: 'Livrées',    count: this.orders().filter(o => o.status === 'delivered').length,                     color: '#2e7d32' },
+    { label: 'Annulées',   count: this.orders().filter(o => ['cancelled','refunded'].includes(o.status)).length,  color: '#c62828' },
+  ]);
+
+  private noticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.noticeTimer !== null) clearTimeout(this.noticeTimer);
+    });
+  }
 
   ngOnInit(): void { this.load(); }
 
   load(): void {
     this.loading.set(true);
     this.error.set(null);
-    const params = new URLSearchParams({ page: String(this.page), limit: String(this.pageSize) });
-    if (this.filterStatus) params.set('status', this.filterStatus);
+    const params = new URLSearchParams({ page: String(this.page()), limit: String(this.pageSize) });
+    const status = this.filterStatus();
+    if (status) params.set('status', status);
 
     this.http.get<{ data: ShopOrder[]; total: number; totalPages: number }>(
       buildApiUrl(`/cshop/orders?${params}`)
@@ -404,25 +416,28 @@ export class ShopOrdersComponent implements OnInit {
     });
   }
 
-  onFilterChange(): void {
-    this.page = 1;
+  onFilterChange(value: string): void {
+    this.filterStatus.set(value);
+    this.page.set(1);
     this.load();
   }
 
   goToPage(p: number): void {
     if (p < 1 || p > this.totalPages()) return;
-    this.page = p;
+    this.page.set(p);
     this.load();
   }
 
   updateStatus(order: ShopOrder, status: string): void {
+    if (!STATUS_OPTIONS.some(s => s.value === status)) return;
     this.notice.set(null);
     this.error.set(null);
     this.http.patch(buildApiUrl(`/cshop/orders/${order.id}/status`), { status }).subscribe({
       next: () => {
         this.orders.update(list => list.map(o => o.id === order.id ? { ...o, status } : o));
         this.notice.set(`Statut mis à jour → ${STATUS_OPTIONS.find(s => s.value === status)?.label}`);
-        setTimeout(() => this.notice.set(null), 3000);
+        if (this.noticeTimer !== null) clearTimeout(this.noticeTimer);
+        this.noticeTimer = setTimeout(() => this.notice.set(null), 3000);
       },
       error: () => this.error.set('Impossible de mettre à jour le statut.'),
     });
@@ -430,8 +445,18 @@ export class ShopOrdersComponent implements OnInit {
 
   openDetail(order: ShopOrder): void { this.detail.set(order); }
 
-  invoiceUrl(orderId: string): string {
-    return buildApiUrl(`/cshop/orders/${orderId}/invoice`);
+  downloadInvoice(orderId: string): void {
+    this.http.get(buildApiUrl(`/cshop/orders/${orderId}/invoice`), { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `facture-${orderId.substring(0, 8)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.error.set('Impossible de télécharger la facture.'),
+    });
   }
 
   deliveryLabel(option?: string): string {
