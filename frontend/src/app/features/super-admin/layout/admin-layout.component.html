@@ -41,20 +41,27 @@
     </div>
 
     <nav class="sidebar-nav" aria-label="Navigation admin">
-      @for (item of visibleNavItems; track item.route) {
-        <a
-          [routerLink]="item.route"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: false }"
-          class="nav-link"
-          [attr.title]="sidebarCollapsed() ? item.label : null"
-          (click)="closeMobileMenu()"
-        >
-          <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
-          @if (!sidebarCollapsed()) {
-            <span class="nav-label">{{ item.label }}</span>
-          }
-        </a>
+      @for (group of visibleNavGroups; track group.label) {
+        @if (!sidebarCollapsed()) {
+          <div class="nav-group-label">{{ group.label }}</div>
+        } @else {
+          <div class="nav-group-divider" [attr.title]="group.label"></div>
+        }
+        @for (item of group.items; track item.route) {
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: false }"
+            class="nav-link"
+            [attr.title]="sidebarCollapsed() ? item.label : null"
+            (click)="closeMobileMenu()"
+          >
+            <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
+            @if (!sidebarCollapsed()) {
+              <span class="nav-label">{{ item.label }}</span>
+            }
+          </a>
+        }
       }
     </nav>
 

@@ -14,6 +14,7 @@ import { CleanBooking } from '../entities/clean-booking.entity';
 import { CleanBookingStatus } from '../enums/clean-booking-status.enum';
 import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
+import { NotificationsService } from 'src/core/notifications/notifications.service';
 
 @Injectable()
 export class CleanBookingsService {
@@ -22,6 +23,7 @@ export class CleanBookingsService {
   constructor(
     @InjectRepository(CleanBooking)
     private readonly repo: Repository<CleanBooking>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreateCleanBookingDto) {
@@ -37,6 +39,13 @@ export class CleanBookingsService {
     return this.repo.find({ order: { createdAt: 'DESC' } });
   }
 
+  async findByUser(userId: string) {
+    return this.repo.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findOne(id: string) {
     const booking = await this.repo.findOne({ where: { id } });
     if (!booking) throw new NotFoundException('CLEAN_BOOKING_NOT_FOUND');
@@ -48,7 +57,27 @@ export class CleanBookingsService {
     booking.status = dto.status;
     if (dto.assignedTo !== undefined) booking.assignedTo = dto.assignedTo;
     if (dto.notes !== undefined) booking.notes = dto.notes;
-    return this.repo.save(booking);
+    const saved = await this.repo.save(booking);
+
+    try {
+      const labels: Partial<Record<string, string>> = {
+        CONFIRMED: 'Confirmée', ASSIGNED: 'Assignée',
+        IN_PROGRESS: 'En cours', DONE: 'Terminée', CANCELLED: 'Annulée',
+      };
+      const label = labels[dto.status];
+      if (label && booking.email) {
+        await this.notificationsService.sendNotification({
+          to: booking.email,
+          title: `Réservation C'Clean — ${label}`,
+          message: `Votre réservation (${booking.serviceTitle}) est maintenant : ${label}.`,
+          channel: 'EMAIL',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Notification échec booking ${id}`, err);
+    }
+
+    return saved;
   }
 
   @OnEvent('payment.success')

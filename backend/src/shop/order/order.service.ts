@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { User } from '../../auth/entities/user.entity';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { Order, DeliveryOption } from './order.entity';
@@ -20,6 +21,7 @@ import { CexpressService } from 'src/express/express.service';
 import { RelayPointService } from '../relay-point/relay-point.service';
 import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
+import { NotificationsService } from 'src/core/notifications/notifications.service';
 
 @Injectable()
 export class OrderService {
@@ -38,10 +40,14 @@ export class OrderService {
     @InjectRepository(CartItem)
     private readonly cartItemRepo: Repository<CartItem>,
 
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+
     private readonly cexpressService: CexpressService,
     private readonly promotionService: PromotionService,
     private readonly productService: ProductService,
     private readonly relayPointService: RelayPointService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -259,15 +265,24 @@ export class OrderService {
     });
   }
 
-  async findAllOrders(): Promise<Order[]> {
-    return this.orderRepo.find({
-      order: { createdAt: 'DESC' },
-    });
+  async findAllOrders(page = 1, limit = 20, status?: string) {
+    const qb = this.orderRepo
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.assignees', 'assignees')
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) qb.andWhere('order.status = :status', { status });
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(orderId: string): Promise<Order> {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
+      relations: ['assignees'],
     });
 
     if (!order) {
@@ -275,6 +290,27 @@ export class OrderService {
     }
 
     return order;
+  }
+
+  /** Ajoute un employé à la liste des assignés de la commande */
+  async addAssignee(orderId: string, employeeId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    const employee = await this.userRepo.findOne({ where: { id: employeeId } });
+    if (!employee) throw new Error('Employee not found');
+    if (!order.assignees) order.assignees = [];
+    const alreadyAssigned = order.assignees.some((e) => e.id === employeeId);
+    if (!alreadyAssigned) {
+      order.assignees.push(employee);
+      await this.orderRepo.save(order);
+    }
+    return order;
+  }
+
+  /** Retire un employé de la liste des assignés de la commande */
+  async removeAssignee(orderId: string, employeeId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    order.assignees = (order.assignees ?? []).filter((e) => e.id !== employeeId);
+    return this.orderRepo.save(order);
   }
 
   async updateStatus(orderId: string, status: OrderStatus): Promise<Order> {
@@ -286,7 +322,39 @@ export class OrderService {
       order.isPaid = true;
     }
 
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+
+    try {
+      const statusLabels: Partial<Record<OrderStatus, string>> = {
+        [OrderStatus.PAID]: 'Payée',
+        [OrderStatus.PREPARING]: 'En cours de préparation',
+        [OrderStatus.SHIPPED]: 'Expédiée',
+        [OrderStatus.DELIVERED]: 'Livrée',
+        [OrderStatus.CANCELLED]: 'Annulée',
+      };
+      const label = statusLabels[status];
+      if (label) {
+        const user = await this.userRepo.findOne({ where: { id: order.userId } });
+        await this.notificationsService.sendNotification({
+          userId: order.userId,
+          title: `Commande C'Shop — ${label}`,
+          message: `Votre commande #${orderId.substring(0, 8)} est maintenant : ${label}.`,
+          channel: 'IN_APP',
+        });
+        if (user?.email) {
+          await this.notificationsService.sendNotification({
+            to: user.email,
+            title: `Commande C'Shop — ${label}`,
+            message: `Votre commande #${orderId.substring(0, 8)} est maintenant : ${label}.`,
+            channel: 'EMAIL',
+          });
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Notification échec commande ${orderId}`, err);
+    }
+
+    return saved;
   }
 
   /**

@@ -3,12 +3,15 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
+  ManyToMany,
+  JoinTable,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
 } from 'typeorm';
 import { OrderStatus } from './order-status.enum';
 import { OrderItem } from './order-item.entity';
+import { User } from '../../auth/entities/user.entity';
 
 export enum DeliveryOption {
   CEXPRESS = 'cexpress',   // Livraison C'Express (tarif calculé dynamiquement)
@@ -94,6 +97,11 @@ export class Order {
   // Note libre du client (instructions de livraison, etc.)
   @Column({ nullable: true })
   note?: string;
+
+  // Employés assignés à cette commande (relation N-N : un employé peut gérer plusieurs commandes)
+  @ManyToMany(() => User, { eager: false })
+  @JoinTable({ name: 'order_assignees' })
+  assignees: User[];
 
   @CreateDateColumn()
   createdAt: Date;

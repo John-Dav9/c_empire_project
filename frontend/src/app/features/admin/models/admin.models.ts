@@ -5,6 +5,15 @@ export enum UserRole {
   SUPER_ADMIN = 'super_admin',
 }
 
+export enum EmployeeSpecialty {
+  LIVREUR = 'livreur',
+  EVENEMENTIALISTE = 'evenementialiste',
+  COURSIER = 'coursier',
+  NETTOYEUR = 'nettoyeur',
+  BRICOLEUR = 'bricoleur',
+  POINT_RELAIS = 'point_relais',
+}
+
 export interface User {
   id: string;
   email: string;
@@ -12,6 +21,7 @@ export interface User {
   lastname: string;
   phone: string;
   role: UserRole;
+  specialty?: EmployeeSpecialty | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

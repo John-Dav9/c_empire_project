@@ -12,13 +12,13 @@ import { Event } from './entities/event.entity';
 import { EventBooking } from './entities/event-booking.entity';
 
 import { PaymentsModule } from 'src/core/payments/payments.module';
-
-// Core modules (déjà existants chez toi)
+import { NotificationsModule } from 'src/core/notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Event, EventBooking]),
     PaymentsModule,
+    NotificationsModule,
   ],
   controllers: [CEventController, EventBookingController],
   providers: [CEventService, EventBookingService, EventAiService],

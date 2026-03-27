@@ -14,6 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
 
@@ -28,6 +29,7 @@ interface UserProfile {
 @Component({
   selector: 'app-profile',
   imports: [
+    RouterLink,
     ReactiveFormsModule,
     MatCardModule,
     MatFormFieldModule,

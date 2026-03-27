@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../core/roles/roles.guard';
 import { Roles } from '../core/roles/roles.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
+import { EmployeeSpecialty } from '../auth/enums/employee-specialty.enum';
 import { Permissions } from 'src/core/permissions/permissions.decorator';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
@@ -59,9 +60,11 @@ export class AdminController {
   async updateUserRole(
     @Param('id') userId: string,
     @Body('role') role: UserRole,
+    @Body('specialty') specialty: EmployeeSpecialty | undefined,
     @CurrentUser('userId') actorId: string,
+    @CurrentUser('role') actorRole: UserRole,
   ) {
-    return this.adminService.updateUserRole(userId, role, actorId);
+    return this.adminService.updateUserRole(userId, role, actorId, actorRole, specialty);
   }
 
   @Patch('users/:id/toggle-status')

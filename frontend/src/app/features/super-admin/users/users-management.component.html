@@ -7,9 +7,9 @@
   <!-- Filters -->
   <div class="filters app-shell-card">
     <div class="search-box">
-      <input 
-        type="text" 
-        [(ngModel)]="searchTerm" 
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
         (keyup.enter)="onSearch()"
         placeholder="Rechercher par email ou nom..."
         class="form-control">
@@ -19,7 +19,9 @@
     <div class="filter-group">
       <select [(ngModel)]="selectedRole" (change)="onFilterChange()" class="form-control">
         <option value="">Tous les rôles</option>
-        <option *ngFor="let role of userRoles" [value]="role">{{ getRoleLabel(role) }}</option>
+        @for (role of userRoles; track role) {
+          <option [value]="role">{{ getRoleLabel(role) }}</option>
+        }
       </select>
 
       <select [(ngModel)]="selectedStatus" (change)="onFilterChange()" class="form-control">
@@ -30,98 +32,142 @@
     </div>
   </div>
 
-  <!-- Loading -->
-  <div *ngIf="loading" class="loading">
-    <div class="spinner"></div>
-    <p>Chargement des utilisateurs...</p>
-  </div>
+  @if (loading) {
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Chargement des utilisateurs...</p>
+    </div>
+  }
 
-  <!-- Error -->
-  <div *ngIf="error && !loading" class="error">
-    <p>{{ error }}</p>
-    <button class="btn btn-primary" (click)="loadUsers()">Réessayer</button>
-  </div>
+  @if (error && !loading) {
+    <div class="error">
+      <p>{{ error }}</p>
+      <button class="btn btn-primary" (click)="loadUsers()">Réessayer</button>
+    </div>
+  }
 
-  <!-- Users Table -->
-  <div *ngIf="!loading && !error" class="table-container app-shell-card">
-    <table class="users-table">
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th>Nom Complet</th>
-          <th>Rôle</th>
-          <th>Statut</th>
-          <th>Date d'inscription</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of users">
-          <td>{{ user.email }}</td>
-          <td>{{ user.firstname }} {{ user.lastname }}</td>
-          <td>
-            <span class="badge" [ngClass]="getRoleBadgeClass(user.role)">
-              {{ getRoleLabel(user.role) }}
-            </span>
-          </td>
-          <td>
-            <span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">
-              {{ user.isActive ? 'Actif' : 'Inactif' }}
-            </span>
-          </td>
-          <td>{{ user.createdAt | date:'dd/MM/yyyy' }}</td>
-          <td class="actions">
-            <button
-              *ngIf="user.role === UserRole.CLIENT || user.role === UserRole.EMPLOYEE"
-              class="btn btn-small btn-promote"
-              (click)="promoteToAdmin(user)"
-              title="Promouvoir en Admin">
-              ⬆️ Admin
-            </button>
-            <button
-              *ngIf="user.role === UserRole.ADMIN"
-              class="btn btn-small btn-promote-super"
-              (click)="promoteToSuperAdmin(user)"
-              title="Promouvoir en Super Admin">
-              ⭐ Super Admin
-            </button>
-            <button 
-              class="btn-icon" 
-              (click)="toggleUserStatus(user.id)"
-              [title]="user.isActive ? 'Désactiver' : 'Activer'">
-              {{ user.isActive ? '🔒' : '🔓' }}
-            </button>
-            <button 
-              class="btn-icon" 
-              (click)="deleteUser(user.id, user.email)"
-              title="Supprimer">
-              🗑️
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  @if (!loading && !error) {
+    <div class="table-container app-shell-card">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Nom Complet</th>
+            <th>Rôle</th>
+            <th>Spécialité</th>
+            <th>Statut</th>
+            <th>Date d'inscription</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users; track user.id) {
+            <tr>
+              <td>{{ user.email }}</td>
+              <td>{{ user.firstname }} {{ user.lastname }}</td>
+              <td>
+                <span class="badge" [class]="getRoleBadgeClass(user.role)">
+                  {{ getRoleLabel(user.role) }}
+                </span>
+              </td>
+              <td>
+                @if (user.specialty) {
+                  <span class="badge badge-secondary">{{ getSpecialtyLabel(user.specialty) }}</span>
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+              </td>
+              <td>
+                <span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">
+                  {{ user.isActive ? 'Actif' : 'Inactif' }}
+                </span>
+              </td>
+              <td>{{ user.createdAt | date:'dd/MM/yyyy' }}</td>
+              <td class="actions">
+                @if (isSuperAdmin) {
+                  <button class="btn btn-small btn-role" (click)="openRoleModal(user)" title="Modifier le rôle">
+                    🎭 Rôle
+                  </button>
+                }
+                <button
+                  class="btn-icon"
+                  (click)="toggleUserStatus(user.id)"
+                  [title]="user.isActive ? 'Désactiver' : 'Activer'">
+                  {{ user.isActive ? '🔒' : '🔓' }}
+                </button>
+                @if (isSuperAdmin) {
+                  <button class="btn-icon" (click)="deleteUser(user.id, user.email)" title="Supprimer">
+                    🗑️
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
 
-    <!-- Empty State -->
-    <div *ngIf="users.length === 0" class="empty-state">
-      <p>Aucun utilisateur trouvé</p>
+      @if (users.length === 0) {
+        <div class="empty-state">
+          <p>Aucun utilisateur trouvé</p>
+        </div>
+      }
+    </div>
+  }
+
+  @if (!loading && totalPages > 1) {
+    <div class="pagination">
+      <button class="btn btn-secondary" (click)="previousPage()" [disabled]="currentPage === 1">
+        ← Précédent
+      </button>
+      <span class="page-info">Page {{ currentPage }} sur {{ totalPages }}</span>
+      <button class="btn btn-secondary" (click)="nextPage()" [disabled]="currentPage === totalPages">
+        Suivant →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Role Change Modal -->
+@if (showRoleModal) {
+  <div class="modal-overlay" (click)="closeRoleModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Modifier le rôle</h2>
+        <button class="close-btn" (click)="closeRoleModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-user-info">
+          <strong>{{ roleModalUser?.firstname }} {{ roleModalUser?.lastname }}</strong><br>
+          <span class="text-muted">{{ roleModalUser?.email }}</span>
+        </p>
+
+        <div class="form-group">
+          <label>Nouveau rôle</label>
+          <select [(ngModel)]="selectedNewRole" class="form-control">
+            @for (role of userRoles; track role) {
+              <option [value]="role">{{ getRoleLabel(role) }}</option>
+            }
+          </select>
+        </div>
+
+        @if (selectedNewRole === UserRole.EMPLOYEE) {
+          <div class="form-group">
+            <label>Spécialité</label>
+            <select [(ngModel)]="selectedSpecialty" class="form-control">
+              <option value="">Aucune spécialité</option>
+              @for (s of specialtyOptions; track s) {
+                <option [value]="s">{{ getSpecialtyLabel(s) }}</option>
+              }
+            </select>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeRoleModal()">Annuler</button>
+        <button class="btn btn-primary" (click)="saveRoleChange()" [disabled]="savingRole || !selectedNewRole">
+          {{ savingRole ? 'Enregistrement...' : 'Confirmer' }}
+        </button>
+      </div>
     </div>
   </div>
-
-  <!-- Pagination -->
-  <div *ngIf="!loading && totalPages > 1" class="pagination">
-    <button 
-      class="btn btn-secondary" 
-      (click)="previousPage()" 
-      [disabled]="currentPage === 1">
-      ← Précédent
-    </button>
-    <span class="page-info">Page {{ currentPage }} sur {{ totalPages }}</span>
-    <button 
-      class="btn btn-secondary" 
-      (click)="nextPage()" 
-      [disabled]="currentPage === totalPages">
-      Suivant →
-    </button>
-  </div>
-</div>
+}

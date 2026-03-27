@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
@@ -35,8 +36,13 @@ export class TasksController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  findAll() {
-    return this.tasksService.findAll();
+  findAll(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('status') status?: string,
+    @Query('priority') priority?: string,
+  ) {
+    return this.tasksService.findAll(+page, +limit, status, priority);
   }
 
   @Get('my-tasks')

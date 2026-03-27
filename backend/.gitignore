@@ -35,12 +35,16 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
+# dotenv environment variable files — NE JAMAIS COMMITER
 .env
+.env.*
+!.env.*.example
+!.env.example
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
+.env.e2e
 
 # temp directory
 .temp
@@ -54,3 +58,14 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Uploads utilisateurs (fichiers binaires / médias)
+/uploads/
+
+# Clés privées et certificats
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt

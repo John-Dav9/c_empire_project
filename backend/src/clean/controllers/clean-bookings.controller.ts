@@ -33,6 +33,13 @@ export class CleanBookingsController {
     return this.service.create(dto);
   }
 
+  // Client: ses propres réservations
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  findMine(@CurrentUser('userId') userId: string) {
+    return this.service.findByUser(userId);
+  }
+
   // Admin: lister + consulter
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)

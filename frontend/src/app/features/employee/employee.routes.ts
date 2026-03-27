@@ -3,6 +3,8 @@ import { EmployeeDashboardComponent } from './dashboard/employee-dashboard.compo
 import { EmployeeGuard } from './guards/employee.guard';
 import { EmployeeLayoutComponent } from './layout/employee-layout.component';
 import { EmployeeTodoMissionsComponent } from './todo-missions/employee-todo-missions.component';
+import { EmployeeAgendaComponent } from './agenda/employee-agenda.component';
+import { EmployeeTasksComponent } from './tasks/employee-tasks.component';
 
 export const employeeRoutes: Routes = [
   {
@@ -12,6 +14,8 @@ export const employeeRoutes: Routes = [
     children: [
       { path: 'dashboard', component: EmployeeDashboardComponent },
       { path: 'todo/missions', component: EmployeeTodoMissionsComponent },
+      { path: 'agenda', component: EmployeeAgendaComponent },
+      { path: 'tasks', component: EmployeeTasksComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

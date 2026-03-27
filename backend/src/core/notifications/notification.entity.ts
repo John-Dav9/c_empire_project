@@ -29,6 +29,9 @@ export class Notification {
   @Column({ default: 'PENDING' })
   status: 'PENDING' | 'SENT' | 'FAILED';
 
+  @Column({ default: false })
+  isRead: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

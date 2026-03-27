@@ -68,6 +68,17 @@ export class TodoOrderController {
     return this.service.updateStatus(id, status);
   }
 
+  @Patch(':id/assign')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Permissions('todo:orders:update')
+  assignEmployee(
+    @Param('id') id: string,
+    @Body('employeeId') employeeId: string | null,
+  ) {
+    return this.service.assignEmployee(id, employeeId ?? null);
+  }
+
   @Post(':id/pay')
   async pay(
     @Param('id') id: string,

@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
@@ -65,7 +65,7 @@ type BookingPayload = {
 
 @Component({
   selector: 'app-events-public',
-  imports: [MatIconModule, FormsModule, CurrencyXafPipe],
+  imports: [MatIconModule, FormsModule, RouterLink, CurrencyXafPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="events-page page-enter">
@@ -78,8 +78,8 @@ type BookingPayload = {
             C'Events centralise les prestations, le planning et le suivi de votre reservation.
           </p>
           <div class="hero-actions">
-            <a class="btn solid" href="#planner">Creer mon brief</a>
-            <a class="btn ghost" href="#catalog">Voir les formules</a>
+            <a class="btn solid" routerLink="." fragment="planner">Creer mon brief</a>
+            <a class="btn ghost" routerLink="." fragment="catalog">Voir les formules</a>
           </div>
         </div>
         <div class="hero-visual">

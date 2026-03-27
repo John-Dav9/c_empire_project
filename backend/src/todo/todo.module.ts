@@ -17,11 +17,13 @@ import { TodoAdminStatsController } from './controllers/todo-admin-stats.control
 
 import { PaymentsModule } from 'src/core/payments/payments.module';
 import { TodoPublicController } from './controllers/todo-public.controller';
+import { NotificationsModule } from 'src/core/notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([TodoOrder, TodoServiceEntity]),
     PaymentsModule,
+    NotificationsModule,
   ],
   providers: [
     TodoOrderService,

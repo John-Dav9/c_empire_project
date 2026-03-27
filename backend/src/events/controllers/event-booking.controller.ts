@@ -74,6 +74,17 @@ export class EventBookingController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Permissions('events:bookings:update')
+  @Patch(':id/assign')
+  async assignEmployee(
+    @Param('id') id: string,
+    @Body('employeeId') employeeId: string | null,
+  ) {
+    return this.bookingService.assignEmployee(id, employeeId ?? null);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Permissions('events:bookings:update')
   @Patch(':id/validate')
   async validate(@Param('id') id: string) {
     return this.bookingService.validateBooking(id);

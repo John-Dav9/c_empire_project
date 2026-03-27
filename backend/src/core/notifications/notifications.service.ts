@@ -81,6 +81,15 @@ export class NotificationsService {
     return this.notificationRepo.find({
       where: { user: { id: userId } },
       order: { createdAt: 'DESC' },
+      take: 30,
     });
+  }
+
+  async markAllRead(userId: string) {
+    await this.notificationRepo.update(
+      { user: { id: userId }, isRead: false },
+      { isRead: true },
+    );
+    return { success: true };
   }
 }

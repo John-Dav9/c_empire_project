@@ -21,11 +21,21 @@ export class TasksService {
     return this.taskRepository.save(task);
   }
 
-  async findAll(): Promise<Task[]> {
-    return this.taskRepository.find({
-      relations: ['assignedTo', 'assignedBy', 'sector'],
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(page = 1, limit = 20, status?: string, priority?: string) {
+    const qb = this.taskRepository
+      .createQueryBuilder('task')
+      .leftJoinAndSelect('task.assignedTo', 'assignedTo')
+      .leftJoinAndSelect('task.assignedBy', 'assignedBy')
+      .leftJoinAndSelect('task.sector', 'sector')
+      .orderBy('task.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (status) qb.andWhere('task.status = :status', { status });
+    if (priority) qb.andWhere('task.priority = :priority', { priority });
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findByEmployee(employeeId: string): Promise<Task[]> {

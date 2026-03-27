@@ -90,11 +90,37 @@
         border-radius: 3px;
       }
 
+      .nav-group-label {
+        padding: 0.6rem 1.5rem 0.25rem;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255, 210, 160, 0.55);
+        margin-top: 0.5rem;
+
+        &:first-child {
+          margin-top: 0;
+        }
+      }
+
+      .nav-group-divider {
+        margin: 0.75rem auto 0.25rem;
+        width: 32px;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 1px;
+
+        &:first-child {
+          display: none;
+        }
+      }
+
       .nav-link {
         display: flex;
         align-items: center;
-        margin-bottom: 0.5rem;
-        padding: 0.875rem 1.5rem;
+        margin-bottom: 0.25rem;
+        padding: 0.7rem 1.5rem;
         color: rgba(255, 255, 255, 0.86);
         text-decoration: none;
         transition: all 0.2s;

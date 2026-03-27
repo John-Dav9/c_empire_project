@@ -31,8 +31,8 @@ type TodoServiceItem = {
           <h1>Deleguez vos taches du quotidien et gagnez du temps chaque semaine</h1>
           <p>Maison, administratif, lifestyle ou urgence: un seul espace pour planifier, suivre et valider vos missions.</p>
           <div class="hero-cta">
-            <a class="btn solid" [routerLink]="[planRoute()]">Planifier une mission</a>
-            <a class="btn ghost" [routerLink]="[planRoute()]">Voir mes demandes</a>
+            <a class="btn solid" routerLink="." fragment="services">Planifier une mission</a>
+            <a class="btn ghost" [routerLink]="requestsRoute()">Voir mes demandes</a>
           </div>
         </div>
       </header>
@@ -79,7 +79,7 @@ type TodoServiceItem = {
         </div>
       </section>
 
-      <section class="services app-shell-card">
+      <section class="services app-shell-card" id="services">
         <div class="services-head">
           <div>
             <h2>Services populaires C'To-Do</h2>
@@ -219,6 +219,9 @@ export class TodoPublicComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly planRoute = signal('/auth/signin');
+  readonly requestsRoute = computed(() =>
+    this.authService.isAuthenticated() ? '/client/todo/requests' : '/auth/signin'
+  );
 
   readonly categories = computed(() => {
     const set = new Set(

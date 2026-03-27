@@ -15,6 +15,7 @@ import { TodoOrderStatus } from '../enums/todo-order-status.enum';
 import { TodoService } from '../entities/todo-service.entity';
 import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
+import { NotificationsService } from 'src/core/notifications/notifications.service';
 
 @Injectable()
 export class TodoOrderService {
@@ -26,6 +27,8 @@ export class TodoOrderService {
 
     @InjectRepository(TodoService)
     private readonly todoServiceRepo: Repository<TodoService>,
+
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreateTodoOrderDto, userId?: string) {
@@ -77,6 +80,35 @@ export class TodoOrderService {
   async updateStatus(id: string, status: TodoOrderStatus) {
     const order = await this.findOne(id);
     order.status = status;
+    const saved = await this.orderRepo.save(order);
+
+    try {
+      const labels: Partial<Record<TodoOrderStatus, string>> = {
+        [TodoOrderStatus.CONFIRMED]: 'Confirmée',
+        [TodoOrderStatus.IN_PROGRESS]: 'En cours',
+        [TodoOrderStatus.COMPLETED]: 'Terminée',
+        [TodoOrderStatus.CANCELLED]: 'Annulée',
+      };
+      const label = labels[status];
+      if (label && order.email) {
+        await this.notificationsService.sendNotification({
+          userId: order.userId,
+          to: order.email,
+          title: `Commande C'Todo — ${label}`,
+          message: `Votre commande (${order.serviceTitle}) est maintenant : ${label}.`,
+          channel: 'EMAIL',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Notification échec order ${id}`, err);
+    }
+
+    return saved;
+  }
+
+  async assignEmployee(id: string, employeeId: string | null) {
+    const order = await this.findOne(id);
+    order.assignedEmployeeId = employeeId;
     return this.orderRepo.save(order);
   }
 

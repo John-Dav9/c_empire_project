@@ -5,11 +5,13 @@
   </div>
 
   <div class="cards-grid">
-    <a class="card app-shell-card" *ngFor="let card of cards" [routerLink]="[card.route]">
-      <div class="card-icon">{{ card.icon }}</div>
-      <h3>{{ card.title }}</h3>
-      <p>{{ card.description }}</p>
-      <span class="btn btn-primary">{{ card.cta }}</span>
-    </a>
+    @for (card of cards; track card.route) {
+      <a class="card app-shell-card" [routerLink]="[card.route]">
+        <div class="card-icon">{{ card.icon }}</div>
+        <h3>{{ card.title }}</h3>
+        <p>{{ card.description }}</p>
+        <span class="btn btn-primary">{{ card.cta }}</span>
+      </a>
+    }
   </div>
 </div>

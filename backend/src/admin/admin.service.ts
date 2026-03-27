@@ -2,11 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { UserRole } from '../auth/enums/user-role.enum';
+import { EmployeeSpecialty } from '../auth/enums/employee-specialty.enum';
 
 @Injectable()
 export class AdminService {
@@ -81,7 +83,18 @@ export class AdminService {
     return userWithoutSensitiveData;
   }
 
-  async updateUserRole(userId: string, newRole: UserRole, adminId: string) {
+  async updateUserRole(
+    userId: string,
+    newRole: UserRole,
+    adminId: string,
+    actorRole: UserRole,
+    specialty?: EmployeeSpecialty | null,
+  ) {
+    // Seul le super-admin peut changer les rôles
+    if (actorRole !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Only super admins can change user roles');
+    }
+
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
@@ -102,6 +115,14 @@ export class AdminService {
     }
 
     user.role = newRole;
+
+    // Assigner la spécialité si promotion en employé, sinon effacer
+    if (newRole === UserRole.EMPLOYEE) {
+      user.specialty = specialty ?? null;
+    } else {
+      user.specialty = null;
+    }
+
     await this.userRepository.save(user);
 
     const {

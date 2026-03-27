@@ -16,6 +16,7 @@ import { CleanQuotesController } from './controllers/clean-quotes.controller';
 import { CleanBookingsController } from './controllers/clean-bookings.controller';
 import { CleanReviewsController } from './controllers/clean-reviews.controller';
 import { PaymentsModule } from 'src/core/payments/payments.module';
+import { NotificationsModule } from 'src/core/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PaymentsModule } from 'src/core/payments/payments.module';
       CleanReview,
     ]),
     PaymentsModule,
+    NotificationsModule,
   ],
   controllers: [
     CleanServicesController,

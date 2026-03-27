@@ -16,6 +16,7 @@ import { GrillMenuPacksController } from './controllers/grill-menu-packs.control
 import { GrillMenuPacksService } from './services/grill-menu-packs.service';
 import { PaymentsModule } from 'src/core/payments/payments.module';
 import { CexpressModule } from 'src/express/express.module';
+import { NotificationsModule } from 'src/core/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CexpressModule } from 'src/express/express.module';
     ]),
     PaymentsModule,
     CexpressModule,
+    NotificationsModule,
   ],
   controllers: [
     GrillProductsController,

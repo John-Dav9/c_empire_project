@@ -14,7 +14,9 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <nav class="employee-nav">
           <a routerLink="/employee/dashboard" routerLinkActive="active">Dashboard</a>
+          <a routerLink="/employee/tasks" routerLinkActive="active">Mes tâches</a>
           <a routerLink="/employee/todo/missions" routerLinkActive="active">Missions C'To-Do</a>
+          <a routerLink="/employee/agenda" routerLinkActive="active">Mon Agenda</a>
         </nav>
 
         <button class="logout-btn" type="button" (click)="logout()">

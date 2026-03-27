@@ -1,16 +1,29 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription, interval } from 'rxjs';
+import { switchMap, filter } from 'rxjs/operators';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatBadgeModule } from '@angular/material/badge';
 import { RouterLink, RouterOutlet, Router } from '@angular/router';
 import { AuthService, User } from '../../core/services/auth.service';
 import { Observable } from 'rxjs';
 import { UserRole } from '../../features/admin/models/admin.models';
 import { SiteFooterComponent } from '../footer/site-footer.component';
+import { ApiService } from '../../core/services/api.service';
+
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  channel: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
 @Component({
   selector: 'app-layout',
@@ -23,6 +36,7 @@ import { SiteFooterComponent } from '../footer/site-footer.component';
     MatIconModule,
     MatButtonModule,
     MatMenuModule,
+    MatBadgeModule,
     RouterLink,
     RouterOutlet,
     SiteFooterComponent,
@@ -56,6 +70,41 @@ import { SiteFooterComponent } from '../footer/site-footer.component';
           <mat-icon>shopping_cart</mat-icon>
           <span class="cart-label">Panier</span>
         </a>
+
+        <ng-container *ngIf="currentUser$ | async">
+          <button
+            mat-icon-button
+            class="bell-btn"
+            [matMenuTriggerFor]="notifMenu"
+            (menuOpened)="loadNotifications()"
+            aria-label="Notifications"
+          >
+            <mat-icon
+              [matBadge]="unreadCount"
+              [matBadgeHidden]="unreadCount === 0"
+              matBadgeColor="warn"
+              matBadgeSize="small"
+            >notifications</mat-icon>
+          </button>
+          <mat-menu #notifMenu="matMenu" xPosition="before">
+            <div class="notif-panel" (click)="$event.stopPropagation()">
+              <div class="notif-panel-head">
+                <span>Notifications</span>
+                <button *ngIf="unreadCount > 0" class="notif-mark-read-btn" (click)="markAllRead()">
+                  Tout marquer comme lu
+                </button>
+              </div>
+              <div *ngIf="notifications.length === 0" class="notif-empty">
+                Aucune notification
+              </div>
+              <div *ngFor="let n of notifications" class="notif-card" [class.notif-card--unread]="!n.isRead">
+                <div class="notif-card-title">{{ n.title }}</div>
+                <div class="notif-card-msg">{{ n.message }}</div>
+                <div class="notif-card-time">{{ n.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+              </div>
+            </div>
+          </mat-menu>
+        </ng-container>
 
         <ng-container *ngIf="currentUser$ | async as user; else guestProfile">
           <a
@@ -244,6 +293,15 @@ import { SiteFooterComponent } from '../footer/site-footer.component';
         flex-shrink: 0;
       }
 
+      .bell-btn {
+        width: 42px;
+        height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.75);
+        color: var(--ink-1);
+      }
+
       .admin-chip {
         height: 42px;
         border-radius: 999px;
@@ -372,8 +430,16 @@ import { SiteFooterComponent } from '../footer/site-footer.component';
     `,
   ],
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnInit, OnDestroy {
   currentUser$: Observable<User | null>;
+  notifications: AppNotification[] = [];
+
+  private pollSub: Subscription | null = null;
+
+  get unreadCount(): number {
+    return this.notifications.filter((n) => !n.isRead).length;
+  }
+
   readonly navLinks = [
     { route: '/', label: 'Accueil', icon: 'home' },
     { route: '/shop', label: 'Boutique', icon: 'storefront' },
@@ -387,8 +453,53 @@ export class LayoutComponent {
   constructor(
     private authService: AuthService,
     private router: Router,
+    private apiService: ApiService,
   ) {
     this.currentUser$ = this.authService.currentUser$;
+  }
+
+  ngOnInit(): void {
+    // Polling toutes les 60 s — uniquement si l'utilisateur est connecté
+    this.pollSub = interval(60_000)
+      .pipe(
+        switchMap(() => this.currentUser$),
+        filter((user) => !!user),
+        switchMap(() =>
+          this.apiService.get<AppNotification[]>('/notifications/me'),
+        ),
+      )
+      .subscribe({
+        next: (data) => {
+          this.notifications = Array.isArray(data)
+            ? data.filter((n) => n.channel === 'IN_APP')
+            : [];
+        },
+        error: () => {},
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.pollSub?.unsubscribe();
+  }
+
+  loadNotifications(): void {
+    this.apiService.get<AppNotification[]>('/notifications/me').subscribe({
+      next: (data) => {
+        this.notifications = Array.isArray(data)
+          ? data.filter((n) => n.channel === 'IN_APP')
+          : [];
+      },
+      error: () => {},
+    });
+  }
+
+  markAllRead(): void {
+    this.apiService.patch('/notifications/mark-all-read', {}).subscribe({
+      next: () => {
+        this.notifications = this.notifications.map((n) => ({ ...n, isRead: true }));
+      },
+      error: () => {},
+    });
   }
 
   isAdmin(user: User | null): boolean {

@@ -29,6 +29,14 @@ interface Order {
   totalAmount: number;
   createdAt: string;
   items?: unknown[];
+  assignees?: Employee[];
+}
+
+interface Employee {
+  id: string;
+  firstname: string;
+  lastname: string;
+  specialty?: string;
 }
 
 @Component({
@@ -126,6 +134,7 @@ interface Order {
                 <th scope="col">Date</th>
                 <th scope="col">Montant</th>
                 <th scope="col">Statut</th>
+                <th scope="col">Assignés</th>
                 <th scope="col">Actions</th>
               </tr>
             </thead>
@@ -157,9 +166,20 @@ interface Order {
                       }
                     </select>
                   </td>
+                  <td class="assignees-cell">
+                    @for (emp of (order.assignees ?? []); track emp.id) {
+                      <span class="assignee-chip">{{ emp.firstname }} {{ emp.lastname }}</span>
+                    }
+                    @if (!(order.assignees?.length)) {
+                      <span class="no-assignee">—</span>
+                    }
+                  </td>
                   <td class="actions-cell">
                     <button mat-icon-button (click)="openDetail(order)" title="Voir les détails" aria-label="Voir les détails">
                       <mat-icon>visibility</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="openAssignModal(order)" title="Assigner des employés" aria-label="Assigner des employés">
+                      <mat-icon>person_add</mat-icon>
                     </button>
                     <button mat-icon-button (click)="printInvoice(order)" [disabled]="order.type !== 'shop'" title="Facture PDF (C'Shop uniquement)" aria-label="Imprimer la facture">
                       <mat-icon>print</mat-icon>
@@ -168,7 +188,7 @@ interface Order {
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="7" class="empty-cell">
+                  <td colspan="8" class="empty-cell">
                     <mat-icon>inventory_2</mat-icon>
                     <p>Aucune commande trouvée</p>
                   </td>
@@ -176,6 +196,53 @@ interface Order {
               }
             </tbody>
           </table>
+        </div>
+      }
+
+      <!-- Modale assignation employés -->
+      @if (assignOrder()) {
+        <div class="modal-overlay" (click)="closeAssignModal()" role="dialog" aria-modal="true" aria-label="Assigner des employés">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h2>Assigner des employés</h2>
+              <button mat-icon-button (click)="closeAssignModal()" aria-label="Fermer"><mat-icon>close</mat-icon></button>
+            </div>
+            <div class="modal-body">
+              <p class="assign-order-ref">Commande #{{ assignOrder()!.id.substring(0, 8) }} — {{ getTypeLabel(assignOrder()!.type) }}</p>
+
+              <!-- Employés actuellement assignés -->
+              <p class="assign-section-label">Assignés actuellement</p>
+              @if (!(assignOrder()!.assignees?.length)) {
+                <p class="assign-empty">Aucun employé assigné.</p>
+              }
+              @for (emp of (assignOrder()!.assignees ?? []); track emp.id) {
+                <div class="assign-chip-row">
+                  <span class="assignee-chip">{{ emp.firstname }} {{ emp.lastname }}</span>
+                  @if (emp.specialty) { <span class="specialty-label">{{ emp.specialty }}</span> }
+                  <button mat-icon-button (click)="removeAssignee(assignOrder()!, emp.id)" aria-label="Retirer" title="Retirer">
+                    <mat-icon>remove_circle_outline</mat-icon>
+                  </button>
+                </div>
+              }
+
+              <!-- Ajouter un employé -->
+              <p class="assign-section-label" style="margin-top:1rem">Ajouter un employé</p>
+              <div class="assign-add-row">
+                <select [(ngModel)]="selectedAssigneeId" class="status-select" aria-label="Choisir un employé">
+                  <option value="">Sélectionner un employé...</option>
+                  @for (emp of unassignedEmployees(assignOrder()!); track emp.id) {
+                    <option [value]="emp.id">{{ emp.firstname }} {{ emp.lastname }}{{ emp.specialty ? ' — ' + emp.specialty : '' }}</option>
+                  }
+                </select>
+                <button mat-flat-button [disabled]="!selectedAssigneeId || assigning" (click)="addAssignee()">
+                  <mat-icon>add</mat-icon> Ajouter
+                </button>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button mat-stroked-button (click)="closeAssignModal()">Fermer</button>
+            </div>
+          </div>
         </div>
       }
 
@@ -404,6 +471,34 @@ interface Order {
       border-top: 1px solid #f0f0f0;
     }
     .print-btn { background-color: #c62828; color: white; }
+
+    /* Assign modal */
+    .assignees-cell { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+    .assignee-chip {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 100px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: #e3f2fd;
+      color: #1565c0;
+      white-space: nowrap;
+    }
+    .no-assignee { color: #ccc; font-size: 0.8rem; }
+    .assign-order-ref { font-size: 0.85rem; color: #888; margin: 0; }
+    .assign-section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      margin: 0 0 0.5rem;
+    }
+    .assign-empty { color: #aaa; font-size: 0.85rem; font-style: italic; margin: 0; }
+    .assign-chip-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .specialty-label { font-size: 0.72rem; color: #888; font-style: italic; }
+    .assign-add-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+    .assign-add-row .status-select { flex: 1; min-width: 180px; }
   `]
 })
 export class OrdersTrackingComponent implements OnInit {
@@ -415,6 +510,12 @@ export class OrdersTrackingComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
   readonly selectedOrder = signal<Order | null>(null);
+
+  // Assign modal state
+  readonly assignOrder = signal<Order | null>(null);
+  readonly employees = signal<Employee[]>([]);
+  selectedAssigneeId = '';
+  assigning = false;
 
   filterType = '';
   filterStatus: FilterStatus = '';
@@ -469,6 +570,75 @@ export class OrdersTrackingComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAllOrders();
+    this.loadEmployees();
+  }
+
+  private loadEmployees(): void {
+    this.http.get<any>(buildApiUrl('/admin/users?role=employee&limit=200')).subscribe({
+      next: (res) => {
+        this.employees.set(
+          (res.data ?? res ?? []).map((u: any) => ({
+            id: u.id,
+            firstname: u.firstname,
+            lastname: u.lastname,
+            specialty: u.specialty,
+          }))
+        );
+      },
+      error: () => {},
+    });
+  }
+
+  openAssignModal(order: Order): void {
+    this.selectedAssigneeId = '';
+    this.assignOrder.set(order);
+  }
+
+  closeAssignModal(): void {
+    this.assignOrder.set(null);
+    this.selectedAssigneeId = '';
+    this.assigning = false;
+  }
+
+  addAssignee(): void {
+    const order = this.assignOrder();
+    if (!order || !this.selectedAssigneeId) return;
+    this.assigning = true;
+    this.http.post(buildApiUrl(`/cshop/orders/${order.id}/assignees/${this.selectedAssigneeId}`), {}).subscribe({
+      next: () => {
+        const emp = this.employees().find(e => e.id === this.selectedAssigneeId);
+        if (emp) {
+          if (!order.assignees) order.assignees = [];
+          if (!order.assignees.some(e => e.id === emp.id)) {
+            order.assignees = [...order.assignees, emp];
+          }
+        }
+        this.selectedAssigneeId = '';
+        this.assigning = false;
+        this.allOrders.update(o => [...o]);
+        this.applyFilters();
+      },
+      error: () => {
+        this.error.set("Erreur lors de l'assignation.");
+        this.assigning = false;
+      },
+    });
+  }
+
+  removeAssignee(order: Order, employeeId: string): void {
+    this.http.delete(buildApiUrl(`/cshop/orders/${order.id}/assignees/${employeeId}`)).subscribe({
+      next: () => {
+        order.assignees = (order.assignees ?? []).filter(e => e.id !== employeeId);
+        this.allOrders.update(o => [...o]);
+        this.applyFilters();
+      },
+      error: () => this.error.set('Erreur lors du retrait.'),
+    });
+  }
+
+  unassignedEmployees(order: Order): Employee[] {
+    const assignedIds = new Set((order.assignees ?? []).map(e => e.id));
+    return this.employees().filter(e => !assignedIds.has(e.id));
   }
 
   loadAllOrders(): void {
@@ -577,6 +747,7 @@ export class OrdersTrackingComponent implements OnInit {
       totalAmount:   o.totalAmount ?? o.total ?? o.price ?? 0,
       createdAt:     o.createdAt ?? new Date().toISOString(),
       items:         o.items ?? o.orderItems ?? [],
+      assignees: Array.isArray(o.assignees) ? o.assignees.map((e: any) => ({ id: e.id, firstname: e.firstname, lastname: e.lastname, specialty: e.specialty })) : [],
     }));
   }
 

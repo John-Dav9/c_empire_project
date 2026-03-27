@@ -152,6 +152,15 @@ interface Employee {
         </div>
       }
 
+      <!-- Pagination -->
+      @if (totalPages() > 1) {
+        <div class="pagination">
+          <button class="page-btn" (click)="goToPage(page - 1)" [disabled]="page === 1" aria-label="Page précédente">‹</button>
+          <span class="page-info">Page {{ page }} / {{ totalPages() }}</span>
+          <button class="page-btn" (click)="goToPage(page + 1)" [disabled]="page === totalPages()" aria-label="Page suivante">›</button>
+        </div>
+      }
+
       <!-- Drawer création / édition -->
       @if (showForm()) {
         <div class="drawer-overlay" (click)="closeForm()">
@@ -289,6 +298,15 @@ interface Employee {
     .form-error { color: #c62828; font-size: .875rem; margin: 0; }
     .drawer-footer { display: flex; justify-content: flex-end; gap: .75rem; margin-top: .5rem; }
     .submit-btn { background-color: #c62828; color: white; display: flex; align-items: center; gap: .4rem; }
+
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; }
+    .page-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: 1px solid #e0e0e0;
+      background: white; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      &:hover:not(:disabled) { background: #fce4ec; border-color: #c62828; color: #c62828; }
+      &:disabled { opacity: .4; cursor: not-allowed; }
+    }
+    .page-info { font-size: .875rem; color: #666; }
   `]
 })
 export class TasksManagementComponent implements OnInit {
@@ -305,11 +323,17 @@ export class TasksManagementComponent implements OnInit {
   readonly formError = signal<string | null>(null);
   readonly editingId = signal<string | null>(null);
 
+  // Pagination
+  page = 1;
+  readonly pageSize = 20;
+  readonly total = signal(0);
+  readonly totalPages = signal(1);
+
   filterStatus = '';
   filterPriority = '';
 
   readonly kpis = () => [
-    { label: 'Total',      count: this.tasks().length,                                           color: '#1a1a2e' },
+    { label: 'Total',      count: this.total(),                                                  color: '#1a1a2e' },
     { label: 'En attente', count: this.tasks().filter(t => t.status === 'pending').length,       color: '#e65100' },
     { label: 'En cours',   count: this.tasks().filter(t => t.status === 'in_progress').length,   color: '#1565c0' },
     { label: 'Terminées',  count: this.tasks().filter(t => t.status === 'completed').length,     color: '#2e7d32' },
@@ -330,10 +354,21 @@ export class TasksManagementComponent implements OnInit {
 
   load(): void {
     this.loading.set(true);
-    this.http.get<Task[]>(buildApiUrl('/tasks')).subscribe({
-      next: (tasks) => {
-        this.tasks.set(tasks);
-        this.filtered.set(tasks);
+    const params = new URLSearchParams({
+      page: String(this.page),
+      limit: String(this.pageSize),
+    });
+    if (this.filterStatus)   params.set('status',   this.filterStatus);
+    if (this.filterPriority) params.set('priority', this.filterPriority);
+
+    this.http.get<{ data: Task[]; total: number; totalPages: number }>(
+      buildApiUrl(`/tasks?${params}`)
+    ).subscribe({
+      next: (res) => {
+        this.tasks.set(res.data);
+        this.filtered.set(res.data);
+        this.total.set(res.total);
+        this.totalPages.set(res.totalPages);
         this.loading.set(false);
       },
       error: () => {
@@ -341,6 +376,12 @@ export class TasksManagementComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  goToPage(p: number): void {
+    if (p < 1 || p > this.totalPages()) return;
+    this.page = p;
+    this.load();
   }
 
   loadEmployees(): void {
@@ -351,13 +392,8 @@ export class TasksManagementComponent implements OnInit {
   }
 
   applyFilter(): void {
-    this.filtered.set(
-      this.tasks().filter(t => {
-        const statusOk   = !this.filterStatus   || t.status   === this.filterStatus;
-        const priorityOk = !this.filterPriority || t.priority === this.filterPriority;
-        return statusOk && priorityOk;
-      })
-    );
+    this.page = 1;
+    this.load();
   }
 
   openCreate(): void {

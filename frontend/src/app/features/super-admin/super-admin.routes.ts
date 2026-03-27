@@ -5,14 +5,18 @@ import { UsersManagementComponent } from './users/users-management.component';
 import { ShopProductsComponent } from './shop/shop-products.component';
 import { GrillProductsComponent } from './grill/grill-products.component';
 import { GrillMenusComponent } from './grill/grill-menus.component';
+import { GrillOrdersComponent } from './grill/grill-orders.component';
 import { CleanServicesComponent } from './clean/clean-services.component';
+import { CleanBookingsComponent } from './clean/clean-bookings.component';
 import { TodoServicesComponent } from './todo/todo-services.component';
+import { TodoOrdersComponent } from './todo/todo-orders.component';
 import { SectorsComponent } from './sectors/sectors.component';
 import { EmployeesManagementComponent } from './employees/employees-management.component';
 import { ClientsManagementComponent } from './clients/clients-management.component';
 import { OrdersTrackingComponent } from './orders/orders-tracking.component';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import { ShopPromotionsComponent } from './shop/shop-promotions.component';
+import { ShopOrdersComponent } from './shop/shop-orders.component';
 import { SeasonalCampaignsComponent } from './marketing/seasonal-campaigns.component';
 import { NewsManagementComponent } from './marketing/news-management.component';
 import { FooterSettingsComponent } from './marketing/footer-settings.component';
@@ -23,6 +27,7 @@ import { ExpressImportExportManagementComponent } from './express/express-import
 import { EventsManagementComponent } from './events/events-management.component';
 import { EventsBookingsManagementComponent } from './events/events-bookings-management.component';
 import { TasksManagementComponent } from './tasks/tasks-management.component';
+import { AdminScheduleComponent } from './schedule/admin-schedule.component';
 
 export const superAdminRoutes: Routes = [
   {
@@ -37,17 +42,22 @@ export const superAdminRoutes: Routes = [
       // C'Shop
       { path: 'shop/products', component: ShopProductsComponent },
       { path: 'shop/promotions', component: ShopPromotionsComponent },
+      { path: 'shop/orders', component: ShopOrdersComponent },
       
       // C'Grill
       { path: 'grill/products', component: GrillProductsComponent },
       { path: 'grill/menus', component: GrillMenusComponent },
+      { path: 'grill/orders', component: GrillOrdersComponent },
       
       // C'Clean
       { path: 'clean/services', component: CleanServicesComponent },
-      
+      { path: 'clean/bookings', component: CleanBookingsComponent },
+
       // C'Todo
       { path: 'todo/services', component: TodoServicesComponent },
+      { path: 'todo/orders', component: TodoOrdersComponent },
       { path: 'tasks', component: TasksManagementComponent },
+      { path: 'schedule', component: AdminScheduleComponent },
 
       // C'Events
       { path: 'events/catalog', component: EventsManagementComponent },

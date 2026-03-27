@@ -61,6 +61,14 @@ export class EmployeeDashboardComponent implements OnInit {
 
         this.cards = [
           {
+            icon: '✔️',
+            title: 'Mes tâches',
+            description: 'Consultez les tâches qui vous ont été assignées et mettez à jour leur statut.',
+            cta: 'Voir mes tâches',
+            route: '/employee/tasks',
+            badge: 'Priorité',
+          },
+          {
             icon: '📋',
             title: "Missions C'Todo",
             description:

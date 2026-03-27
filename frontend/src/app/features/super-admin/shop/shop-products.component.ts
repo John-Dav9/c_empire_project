@@ -1,5 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { buildApiUrl, buildMediaUrl } from '../../../core/config/api.config';
@@ -26,155 +25,280 @@ interface ProductListResponse {
   limit: number;
 }
 
+interface Promo {
+  id: string;
+  title: string;
+  code?: string;
+  type: 'percent' | 'fixed';
+  value: number;
+  isActive: boolean;
+  startsAt?: string;
+  endsAt?: string;
+}
+
 @Component({
   selector: 'app-shop-products',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="products-management">
       <div class="header">
         <h1>🛍️ Gestion des Produits C'Shop</h1>
-        <button class="btn btn-primary" (click)="showAddModal = true">
+        <button class="btn btn-primary" (click)="openAddModal()">
           ➕ Ajouter un produit
         </button>
       </div>
 
-      <!-- Loading/Error States -->
-      <div *ngIf="loading" class="loading">
-        <div class="spinner"></div>
-        <p>Chargement...</p>
-      </div>
-
-      <div *ngIf="error" class="error">{{ error }}</div>
-
-      <!-- Products Grid -->
-      <div *ngIf="!loading" class="products-grid">
-        <div *ngFor="let product of products" class="product-card">
-          <div class="product-image" [style.background-image]="'url(' + (resolveMediaUrl(product.imageUrl) || '/assets/placeholder.png') + ')'"></div>
-          <div class="product-info">
-            <h3>{{ product.name }}</h3>
-            <p class="product-description" *ngIf="product.sku">Code: {{ product.sku }}</p>
-            <p class="product-description">{{ product.description }}</p>
-            <div class="product-meta">
-              <span class="badge badge-category">{{ product.category }}</span>
-              <span class="badge" [class.badge-success]="product.isAvailable" [class.badge-danger]="!product.isAvailable">
-                {{ product.isAvailable ? 'Disponible' : 'Indisponible' }}
-              </span>
-            </div>
-            <div class="product-footer">
-              <span class="price">{{ product.price }} FCFA</span>
-              <span class="stock">Stock: {{ product.stock }}</span>
-            </div>
-            <a
-              *ngIf="product.technicalSheetPdf"
-              class="tech-sheet-link"
-              [href]="resolveMediaUrl(product.technicalSheetPdf)"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              📄 Télécharger la fiche technique
-            </a>
-            <div class="product-actions">
-              <button class="btn-icon" (click)="editProduct(product)" title="Modifier">✏️</button>
-              <button class="btn-icon" (click)="deleteProduct(product.id)" title="Supprimer">🗑️</button>
-              <button class="btn-icon" (click)="toggleAvailability(product)" title="Disponibilité">
-                {{ product.isAvailable ? '🔒' : '🔓' }}
-              </button>
-            </div>
-          </div>
+      @if (loading) {
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Chargement...</p>
         </div>
+      }
 
-        <div *ngIf="products.length === 0" class="empty-state">
-          <p>📦 Aucun produit trouvé</p>
-          <button class="btn btn-primary" (click)="showAddModal = true">Ajouter le premier produit</button>
-        </div>
-      </div>
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
 
-      <!-- Add/Edit Modal -->
-      <div *ngIf="showAddModal" class="modal-overlay" (click)="showAddModal = false">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h2>{{ editingProduct ? '✏️ Modifier' : '➕ Nouveau' }} Produit</h2>
-            <button class="close-btn" (click)="showAddModal = false">✕</button>
-          </div>
-          <form (ngSubmit)="saveProduct()" class="modal-body">
-            <div class="form-group">
-              <label>Nom du produit *</label>
-              <input [(ngModel)]="formData.name" name="name" required class="form-control">
-            </div>
-            <div class="form-group">
-              <label>Code produit (SKU)</label>
-              <input [(ngModel)]="formData.sku" name="sku" class="form-control" placeholder="ex: CSH-000123">
-            </div>
-            <div class="form-group">
-              <label>Description</label>
-              <textarea [(ngModel)]="formData.description" name="description" class="form-control" rows="3"></textarea>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Prix (FCFA) *</label>
-                <input type="number" [(ngModel)]="formData.price" name="price" required class="form-control">
-              </div>
-              <div class="form-group">
-                <label>Stock *</label>
-                <input type="number" [(ngModel)]="formData.stock" name="stock" required class="form-control">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Catégorie *</label>
-              <select [(ngModel)]="formData.category" name="category" required class="form-control">
-                <option value="">Sélectionner...</option>
-                <option *ngFor="let category of categoryOptions" [value]="category">{{ category }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Images du produit</label>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                (change)="onProductImagesSelected($event)"
-                class="form-control">
-              <small class="field-hint" *ngIf="uploadingImages">Upload des images en cours...</small>
-              <div class="uploaded-images" *ngIf="formData.images.length > 0">
-                <div class="uploaded-image-row" *ngFor="let path of formData.images; let i = index">
-                  <input [ngModel]="path" [name]="'uploaded-image-' + i" readonly class="form-control">
-                  <button type="button" class="btn btn-secondary btn-remove-image" (click)="removeImage(i)">Retirer</button>
+      @if (!loading) {
+        <div class="products-grid">
+          @for (product of products; track product.id) {
+            <div class="product-card">
+              <div class="product-image" [style.background-image]="'url(' + (resolveMediaUrl(product.imageUrl) || '/assets/placeholder.png') + ')'"></div>
+              <div class="product-info">
+                <h3>{{ product.name }}</h3>
+                @if (product.sku) {
+                  <p class="product-description">Code: {{ product.sku }}</p>
+                }
+                <p class="product-description">{{ product.description }}</p>
+                <div class="product-meta">
+                  <span class="badge badge-category">{{ product.category }}</span>
+                  <span class="badge" [class.badge-success]="product.isAvailable" [class.badge-danger]="!product.isAvailable">
+                    {{ product.isAvailable ? 'Disponible' : 'Indisponible' }}
+                  </span>
                 </div>
-              </div>
-            </div>
-            <div class="form-group" *ngIf="supportsTechnicalSheet(formData.category)">
-              <label>Fiche technique (PDF, optionnel)</label>
-              <input
-                type="file"
-                accept=".pdf,application/pdf"
-                (change)="onTechnicalSheetSelected($event)"
-                class="form-control">
-              <small class="field-hint" *ngIf="uploadingTechSheet">Upload du PDF en cours...</small>
-              <div class="uploaded-images" *ngIf="formData.technicalSheetPdf">
-                <div class="uploaded-image-row">
-                  <input [ngModel]="formData.technicalSheetPdf" name="technical-sheet" readonly class="form-control">
-                  <button type="button" class="btn btn-secondary btn-remove-image" (click)="clearTechnicalSheet()">
-                    Retirer
+                <div class="product-footer">
+                  <span class="price">{{ product.price }} FCFA</span>
+                  <span class="stock">Stock: {{ product.stock }}</span>
+                </div>
+                @if (product.technicalSheetPdf) {
+                  <a
+                    class="tech-sheet-link"
+                    [href]="resolveMediaUrl(product.technicalSheetPdf)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    📄 Télécharger la fiche technique
+                  </a>
+                }
+                <div class="product-actions">
+                  <button class="btn-icon" (click)="editProduct(product)" title="Modifier">✏️</button>
+                  <button class="btn-icon" (click)="deleteProduct(product.id)" title="Supprimer">🗑️</button>
+                  <button class="btn-icon" (click)="toggleAvailability(product)" title="Disponibilité">
+                    {{ product.isAvailable ? '🔒' : '🔓' }}
                   </button>
                 </div>
               </div>
             </div>
-            <div class="form-group">
-              <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="formData.isAvailable" name="isAvailable">
-                Produit disponible
-              </label>
+          }
+
+          @if (products.length === 0) {
+            <div class="empty-state">
+              <p>📦 Aucun produit trouvé</p>
+              <button class="btn btn-primary" (click)="openAddModal()">Ajouter le premier produit</button>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" (click)="showAddModal = false">Annuler</button>
-              <button type="submit" class="btn btn-primary" [disabled]="saving || uploadingImages || uploadingTechSheet">
-                {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
-              </button>
-            </div>
-          </form>
+          }
         </div>
-      </div>
+      }
+
+      <!-- Add/Edit Modal -->
+      @if (showAddModal) {
+        <div class="modal-overlay" (click)="closeModal()">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h2>{{ editingProduct ? '✏️ Modifier' : '➕ Nouveau' }} Produit</h2>
+              <button class="close-btn" (click)="closeModal()">✕</button>
+            </div>
+            <form (ngSubmit)="saveProduct()" class="modal-body">
+              <div class="form-group">
+                <label>Nom du produit *</label>
+                <input [(ngModel)]="formData.name" name="name" required class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Code produit (SKU)</label>
+                <input [(ngModel)]="formData.sku" name="sku" class="form-control" placeholder="ex: CSH-000123">
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <textarea [(ngModel)]="formData.description" name="description" class="form-control" rows="3"></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Prix (FCFA) *</label>
+                  <input type="number" [(ngModel)]="formData.price" name="price" required class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Stock *</label>
+                  <input type="number" [(ngModel)]="formData.stock" name="stock" required class="form-control">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Catégorie *</label>
+                <select [(ngModel)]="formData.category" name="category" required class="form-control">
+                  <option value="">Sélectionner...</option>
+                  @for (category of categoryOptions; track category) {
+                    <option [value]="category">{{ category }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Images du produit</label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  (change)="onProductImagesSelected($event)"
+                  class="form-control">
+                @if (uploadingImages) {
+                  <small class="field-hint">Upload des images en cours...</small>
+                }
+                @if (formData.images.length > 0) {
+                  <div class="uploaded-images">
+                    @for (path of formData.images; track path; let i = $index) {
+                      <div class="uploaded-image-row">
+                        <input [ngModel]="path" [name]="'uploaded-image-' + i" readonly class="form-control">
+                        <button type="button" class="btn btn-secondary btn-remove-image" (click)="removeImage(i)">Retirer</button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              @if (supportsTechnicalSheet(formData.category)) {
+                <div class="form-group">
+                  <label>Fiche technique (PDF, optionnel)</label>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    (change)="onTechnicalSheetSelected($event)"
+                    class="form-control">
+                  @if (uploadingTechSheet) {
+                    <small class="field-hint">Upload du PDF en cours...</small>
+                  }
+                  @if (formData.technicalSheetPdf) {
+                    <div class="uploaded-images">
+                      <div class="uploaded-image-row">
+                        <input [ngModel]="formData.technicalSheetPdf" name="technical-sheet" readonly class="form-control">
+                        <button type="button" class="btn btn-secondary btn-remove-image" (click)="clearTechnicalSheet()">
+                          Retirer
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="formData.isAvailable" name="isAvailable">
+                  Produit disponible
+                </label>
+              </div>
+
+              <!-- ── Promo section ─────────────────────────────────────── -->
+              <div class="promo-section">
+                <button type="button" class="promo-toggle" (click)="promoOpen = !promoOpen">
+                  🏷️ Promotion
+                  <span class="promo-toggle-icon">{{ promoOpen ? '▲' : '▼' }}</span>
+                </button>
+
+                @if (promoOpen) {
+                  <!-- Existing promos for this product -->
+                  @if (editingProduct && existingPromos.length > 0) {
+                    <div class="existing-promos">
+                      <p class="promo-subtitle">Promotions existantes</p>
+                      @for (promo of existingPromos; track promo.id) {
+                        <div class="promo-item">
+                          <div class="promo-item-info">
+                            <strong>{{ promo.title }}</strong>
+                            <span class="promo-value">
+                              −{{ promo.value }}{{ promo.type === 'percent' ? '%' : ' XAF' }}
+                            </span>
+                            @if (promo.code) {
+                              <span class="promo-code">{{ promo.code }}</span>
+                            }
+                          </div>
+                          <div class="promo-item-actions">
+                            <span class="badge" [class.badge-success]="promo.isActive" [class.badge-danger]="!promo.isActive">
+                              {{ promo.isActive ? 'Active' : 'Inactive' }}
+                            </span>
+                            <button type="button" class="btn btn-small" [class.btn-secondary]="promo.isActive" [class.btn-primary]="!promo.isActive"
+                              (click)="togglePromo(promo)">
+                              {{ promo.isActive ? 'Désactiver' : 'Activer' }}
+                            </button>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  <!-- New promo form -->
+                  <div class="new-promo-form">
+                    <p class="promo-subtitle">{{ editingProduct ? 'Ajouter une nouvelle promotion' : 'Configurer une promotion' }}</p>
+                    <div class="form-group">
+                      <label>Titre de la promo</label>
+                      <input [(ngModel)]="promoForm.title" name="promo-title" class="form-control" placeholder="ex: Soldes d'été">
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label>Type</label>
+                        <select [(ngModel)]="promoForm.type" name="promo-type" class="form-control">
+                          <option value="percent">Pourcentage (%)</option>
+                          <option value="fixed">Montant fixe (XAF)</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label>Valeur *</label>
+                        <input type="number" [(ngModel)]="promoForm.value" name="promo-value" class="form-control"
+                          [placeholder]="promoForm.type === 'percent' ? 'ex: 20' : 'ex: 5000'" min="0">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label>Code promo (optionnel)</label>
+                      <input [(ngModel)]="promoForm.code" name="promo-code" class="form-control" placeholder="ex: ETE2025" style="text-transform:uppercase">
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label>Début (optionnel)</label>
+                        <input type="datetime-local" [(ngModel)]="promoForm.startsAt" name="promo-starts" class="form-control">
+                      </div>
+                      <div class="form-group">
+                        <label>Fin (optionnel)</label>
+                        <input type="datetime-local" [(ngModel)]="promoForm.endsAt" name="promo-ends" class="form-control">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label class="checkbox-label">
+                        <input type="checkbox" [(ngModel)]="promoForm.isActive" name="promo-active">
+                        Activer immédiatement
+                      </label>
+                    </div>
+                    @if (promoError) {
+                      <p class="promo-error">{{ promoError }}</p>
+                    }
+                  </div>
+                }
+              </div>
+              <!-- ─────────────────────────────────────────────────────── -->
+
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" (click)="closeModal()">Annuler</button>
+                <button type="submit" class="btn btn-primary" [disabled]="saving || uploadingImages || uploadingTechSheet">
+                  {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
     </div>
   `,
   styles: [`
@@ -296,20 +420,9 @@ interface ProductListResponse {
       font-size: 0.75rem;
       font-weight: 600;
 
-      &.badge-category {
-        background: #e9ecef;
-        color: #495057;
-      }
-
-      &.badge-success {
-        background: #d4edda;
-        color: #155724;
-      }
-
-      &.badge-danger {
-        background: #f8d7da;
-        color: #721c24;
-      }
+      &.badge-category { background: #e9ecef; color: #495057; }
+      &.badge-success  { background: #d4edda; color: #155724; }
+      &.badge-danger   { background: #f8d7da; color: #721c24; }
     }
 
     .btn {
@@ -324,25 +437,18 @@ interface ProductListResponse {
       &.btn-primary {
         background: #dc3545;
         color: white;
-
-        &:hover:not(:disabled) {
-          background: #c82333;
-        }
+        &:hover:not(:disabled) { background: #c82333; }
       }
-
       &.btn-secondary {
         background: #6c757d;
         color: white;
-
-        &:hover {
-          background: #5a6268;
-        }
+        &:hover { background: #5a6268; }
       }
-
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+      &.btn-small {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.8rem;
       }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
     }
 
     .btn-icon {
@@ -352,10 +458,7 @@ interface ProductListResponse {
       cursor: pointer;
       padding: 0.25rem;
       transition: transform 0.2s;
-
-      &:hover {
-        transform: scale(1.2);
-      }
+      &:hover { transform: scale(1.2); }
     }
 
     .loading, .empty-state {
@@ -384,10 +487,7 @@ interface ProductListResponse {
 
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
@@ -410,10 +510,7 @@ interface ProductListResponse {
         padding: 1.5rem;
         border-bottom: 1px solid #eee;
 
-        h2 {
-          margin: 0;
-          font-size: 1.5rem;
-        }
+        h2 { margin: 0; font-size: 1.5rem; }
 
         .close-btn {
           background: none;
@@ -421,10 +518,7 @@ interface ProductListResponse {
           font-size: 1.5rem;
           cursor: pointer;
           color: #666;
-
-          &:hover {
-            color: #333;
-          }
+          &:hover { color: #333; }
         }
       }
 
@@ -447,27 +541,18 @@ interface ProductListResponse {
             border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 1rem;
-
-            &:focus {
-              outline: none;
-              border-color: #dc3545;
-            }
+            box-sizing: border-box;
+            &:focus { outline: none; border-color: #dc3545; }
           }
 
-          textarea.form-control {
-            resize: vertical;
-          }
+          textarea.form-control { resize: vertical; }
 
           .checkbox-label {
             display: flex;
             align-items: center;
             gap: 0.5rem;
             cursor: pointer;
-
-            input[type="checkbox"] {
-              width: 20px;
-              height: 20px;
-            }
+            input[type="checkbox"] { width: 20px; height: 20px; }
           }
 
           .field-hint {
@@ -514,6 +599,102 @@ interface ProductListResponse {
       }
     }
 
+    /* ── Promo section ─────────────────────────────────────────── */
+    .promo-section {
+      border: 1px dashed #dc3545;
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .promo-toggle {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 1rem;
+      background: #fff5f5;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #dc3545;
+
+      .promo-toggle-icon { font-size: 0.75rem; }
+
+      &:hover { background: #ffe5e5; }
+    }
+
+    .promo-subtitle {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 0.75rem;
+    }
+
+    .existing-promos {
+      padding: 1rem;
+      border-bottom: 1px dashed #f5c6cb;
+    }
+
+    .promo-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid #f0f0f0;
+      flex-wrap: wrap;
+
+      &:last-child { border-bottom: none; }
+
+      .promo-item-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+      }
+
+      .promo-value {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 0.15rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .promo-code {
+        background: #e2e3e5;
+        color: #383d41;
+        padding: 0.15rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-family: monospace;
+      }
+
+      .promo-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+    }
+
+    .new-promo-form {
+      padding: 1rem;
+
+      .form-group { margin-bottom: 1rem; }
+    }
+
+    .promo-error {
+      color: #dc3545;
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -522,18 +703,13 @@ interface ProductListResponse {
 })
 export class ShopProductsComponent implements OnInit {
   private http = inject(HttpClient);
-  private apiUrl = buildApiUrl('/cshop/products');
+  private cdr = inject(ChangeDetectorRef);
+  private readonly apiUrl = buildApiUrl('/cshop/products');
+  private readonly promoApiUrl = buildApiUrl('/cshop/promotions');
+
   readonly categoryOptions = [
-    'Electronique',
-    'Electro-menager',
-    'Maison',
-    'Mode',
-    'Sante',
-    'Bebe',
-    'Bureau',
-    'Auto',
-    'Sport',
-    'Cuisine',
+    'Electronique', 'Electro-menager', 'Maison', 'Mode',
+    'Sante', 'Bebe', 'Bureau', 'Auto', 'Sport', 'Cuisine',
   ];
 
   products: Product[] = [];
@@ -545,17 +721,13 @@ export class ShopProductsComponent implements OnInit {
   uploadingTechSheet = false;
   editingProduct: Product | null = null;
 
-  formData = {
-    name: '',
-    sku: '',
-    description: '',
-    price: 0,
-    category: '',
-    images: [] as string[],
-    technicalSheetPdf: '',
-    stock: 0,
-    isAvailable: true
-  };
+  // Promo state
+  promoOpen = false;
+  existingPromos: Promo[] = [];
+  promoError: string | null = null;
+  promoForm = this.emptyPromoForm();
+
+  formData = this.emptyForm();
 
   ngOnInit() {
     this.loadProducts();
@@ -564,32 +736,42 @@ export class ShopProductsComponent implements OnInit {
   loadProducts() {
     this.loading = true;
     this.error = null;
-    this.http
-      .get<Product[] | ProductListResponse>(`${this.apiUrl}?page=1&limit=500`)
-      .subscribe({
+    this.http.get<Product[] | ProductListResponse>(`${this.apiUrl}?page=1&limit=500`).subscribe({
       next: (data) => {
-        const raw = Array.isArray(data) ? data : data.data ?? [];
-        this.products = raw.map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          sku: product.sku ?? '',
-          description: product.description || '',
-          price: Number(product.finalPrice ?? product.price ?? 0),
-          category: this.toCategoryLabel(product.category ?? product.categories?.[0] ?? ''),
-          imageUrl: product.imageUrl ?? product.image ?? product.images?.[0],
-          images: Array.isArray(product.images) ? product.images : [],
-          technicalSheetPdf: product.technicalSheetPdf ?? null,
-          stock: Number(product.stock ?? 0),
-          isAvailable: Boolean(product.isAvailable ?? product.isActive ?? true),
-          createdAt: product.createdAt,
+        const raw = Array.isArray(data) ? data : (data as ProductListResponse).data ?? [];
+        this.products = raw.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku ?? '',
+          description: p.description || '',
+          price: Number(p.finalPrice ?? p.price ?? 0),
+          category: this.toCategoryLabel(p.category ?? p.categories?.[0] ?? ''),
+          imageUrl: p.imageUrl ?? p.image ?? p.images?.[0],
+          images: Array.isArray(p.images) ? p.images : [],
+          technicalSheetPdf: p.technicalSheetPdf ?? null,
+          stock: Number(p.stock ?? 0),
+          isAvailable: Boolean(p.isAvailable ?? p.isActive ?? true),
+          createdAt: p.createdAt,
         }));
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.error = 'Erreur lors du chargement des produits';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
+  }
+
+  openAddModal() {
+    this.editingProduct = null;
+    this.formData = this.emptyForm();
+    this.promoOpen = false;
+    this.promoForm = this.emptyPromoForm();
+    this.existingPromos = [];
+    this.promoError = null;
+    this.showAddModal = true;
   }
 
   editProduct(product: Product) {
@@ -605,7 +787,31 @@ export class ShopProductsComponent implements OnInit {
       stock: product.stock,
       isAvailable: product.isAvailable
     };
+    this.promoOpen = false;
+    this.promoForm = this.emptyPromoForm();
+    this.promoError = null;
+    this.loadExistingPromos(product.id);
     this.showAddModal = true;
+  }
+
+  private loadExistingPromos(productId: string) {
+    this.http.get<Promo[]>(`${this.promoApiUrl}/product/${productId}/active`).subscribe({
+      next: (promos) => {
+        this.existingPromos = promos;
+        this.cdr.markForCheck();
+      },
+      error: () => { this.existingPromos = []; }
+    });
+  }
+
+  closeModal() {
+    this.showAddModal = false;
+    this.editingProduct = null;
+    this.formData = this.emptyForm();
+    this.promoForm = this.emptyPromoForm();
+    this.existingPromos = [];
+    this.promoError = null;
+    this.promoOpen = false;
   }
 
   saveProduct() {
@@ -623,20 +829,61 @@ export class ShopProductsComponent implements OnInit {
     };
 
     const request = this.editingProduct
-      ? this.http.patch(`${this.apiUrl}/${this.editingProduct.id}`, payload)
-      : this.http.post(this.apiUrl, payload);
+      ? this.http.patch<any>(`${this.apiUrl}/${this.editingProduct.id}`, payload)
+      : this.http.post<any>(this.apiUrl, payload);
 
     request.subscribe({
-      next: () => {
-        this.showAddModal = false;
-        this.resetForm();
-        this.loadProducts();
-        this.saving = false;
+      next: (savedProduct) => {
+        const productId = savedProduct?.id ?? this.editingProduct?.id;
+        if (this.promoOpen && this.promoForm.title && this.promoForm.value > 0 && productId) {
+          this.savePromo(productId, () => {
+            this.closeModal();
+            this.loadProducts();
+            this.saving = false;
+          });
+        } else {
+          this.closeModal();
+          this.loadProducts();
+          this.saving = false;
+        }
       },
-      error: (err) => {
+      error: () => {
         this.error = 'Erreur lors de l\'enregistrement';
         this.saving = false;
+        this.cdr.markForCheck();
       }
+    });
+  }
+
+  private savePromo(productId: string, onDone: () => void) {
+    const dto = {
+      productIds: [productId],
+      title: this.promoForm.title,
+      type: this.promoForm.type,
+      value: Number(this.promoForm.value),
+      code: this.promoForm.code.trim().toUpperCase() || undefined,
+      isActive: this.promoForm.isActive,
+      startsAt: this.promoForm.startsAt || undefined,
+      endsAt: this.promoForm.endsAt || undefined,
+    };
+    this.http.post(this.promoApiUrl, dto).subscribe({
+      next: () => onDone(),
+      error: (err) => {
+        this.promoError = err.error?.message || 'Erreur lors de la création de la promo';
+        this.saving = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  togglePromo(promo: Promo) {
+    const newState = !promo.isActive;
+    this.http.patch(`${this.promoApiUrl}/${promo.id}/active/${newState}`, {}).subscribe({
+      next: () => {
+        promo.isActive = newState;
+        this.cdr.markForCheck();
+      },
+      error: () => alert('Erreur lors de la mise à jour de la promotion')
     });
   }
 
@@ -644,53 +891,35 @@ export class ShopProductsComponent implements OnInit {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
       this.http.delete(`${this.apiUrl}/${id}`).subscribe({
         next: () => this.loadProducts(),
-        error: (err) => this.error = 'Erreur lors de la suppression'
+        error: () => this.error = 'Erreur lors de la suppression'
       });
     }
   }
 
   toggleAvailability(product: Product) {
-    this.http.patch(`${this.apiUrl}/${product.id}`, {
-      isActive: !product.isAvailable
-    }).subscribe({
+    this.http.patch(`${this.apiUrl}/${product.id}`, { isActive: !product.isAvailable }).subscribe({
       next: () => this.loadProducts(),
-      error: (err) => this.error = 'Erreur lors de la mise à jour'
+      error: () => this.error = 'Erreur lors de la mise à jour'
     });
-  }
-
-  resetForm() {
-    this.formData = {
-      name: '',
-      sku: '',
-      description: '',
-      price: 0,
-      category: '',
-      images: [],
-      technicalSheetPdf: '',
-      stock: 0,
-      isAvailable: true
-    };
-    this.editingProduct = null;
   }
 
   onProductImagesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-
+    if (!input.files?.length) return;
     const body = new FormData();
     Array.from(input.files).forEach((file) => body.append('files', file));
-
     this.uploadingImages = true;
     this.http.post<{ files: string[] }>(`${this.apiUrl}/upload-images`, body).subscribe({
       next: (response) => {
-        const uploaded = response.files ?? [];
-        this.formData.images = [...(this.formData.images ?? []), ...uploaded];
+        this.formData.images = [...this.formData.images, ...(response.files ?? [])];
         input.value = '';
         this.uploadingImages = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.error = "Erreur lors de l'upload des images";
         this.uploadingImages = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -701,26 +930,23 @@ export class ShopProductsComponent implements OnInit {
 
   onTechnicalSheetSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-
-    const file = input.files[0];
+    if (!input.files?.length) return;
     const body = new FormData();
-    body.append('files', file);
-
+    body.append('files', input.files[0]);
     this.uploadingTechSheet = true;
-    this.http
-      .post<{ file: string }>(`${this.apiUrl}/upload-technical-sheet`, body)
-      .subscribe({
-        next: (response) => {
-          this.formData.technicalSheetPdf = response.file || '';
-          input.value = '';
-          this.uploadingTechSheet = false;
-        },
-        error: () => {
-          this.error = "Erreur lors de l'upload du PDF";
-          this.uploadingTechSheet = false;
-        },
-      });
+    this.http.post<{ file: string }>(`${this.apiUrl}/upload-technical-sheet`, body).subscribe({
+      next: (response) => {
+        this.formData.technicalSheetPdf = response.file || '';
+        input.value = '';
+        this.uploadingTechSheet = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.error = "Erreur lors de l'upload du PDF";
+        this.uploadingTechSheet = false;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   clearTechnicalSheet(): void {
@@ -728,41 +954,33 @@ export class ShopProductsComponent implements OnInit {
   }
 
   supportsTechnicalSheet(category: string): boolean {
-    const normalized = this.toCategoryLabel(category).toLowerCase();
-    return normalized === 'electronique' || normalized === 'electro-menager';
+    const n = this.toCategoryLabel(category).toLowerCase();
+    return n === 'electronique' || n === 'electro-menager';
   }
 
   resolveMediaUrl(path?: string | null): string {
     return buildMediaUrl(path);
   }
 
+  private emptyForm() {
+    return { name: '', sku: '', description: '', price: 0, category: '', images: [] as string[], technicalSheetPdf: '', stock: 0, isAvailable: true };
+  }
+
+  private emptyPromoForm() {
+    return { title: '', type: 'percent' as 'percent' | 'fixed', value: 0, code: '', startsAt: '', endsAt: '', isActive: true };
+  }
+
   private toCategoryLabel(value: string): string {
-    const normalized = String(value || '').trim().toLowerCase();
-    switch (normalized) {
-      case 'electronics':
-      case 'electronique':
-        return 'Electronique';
-      case 'electromenager':
-      case 'electro-menager':
-      case 'electroménager':
-        return 'Electro-menager';
-      case 'fashion':
-        return 'Mode';
-      case 'home':
-        return 'Maison';
-      case 'health':
-      case 'sante':
-      case 'santé':
-        return 'Sante';
-      case 'baby':
-      case 'bebe':
-      case 'bébé':
-        return 'Bebe';
-      case 'office':
-      case 'bureau':
-        return 'Bureau';
-      default:
-        return String(value || '').trim();
+    const n = String(value || '').trim().toLowerCase();
+    switch (n) {
+      case 'electronics': case 'electronique': return 'Electronique';
+      case 'electromenager': case 'electro-menager': case 'electroménager': return 'Electro-menager';
+      case 'fashion': return 'Mode';
+      case 'home': return 'Maison';
+      case 'health': case 'sante': case 'santé': return 'Sante';
+      case 'baby': case 'bebe': case 'bébé': return 'Bebe';
+      case 'office': case 'bureau': return 'Bureau';
+      default: return String(value || '').trim();
     }
   }
 }

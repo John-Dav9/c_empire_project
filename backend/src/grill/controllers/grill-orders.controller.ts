@@ -30,11 +30,21 @@ export class GrillOrdersController {
     private readonly deliveryService: DeliveryService,
   ) {}
 
+  // Client history
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  findMine(@CurrentUser('userId') userId: string) {
+    return this.ordersService.findByUser(userId);
+  }
+
   // Public
   @Public()
   @Post()
-  create(@Body() dto: CreateGrillOrderDto) {
-    return this.ordersService.create(dto);
+  create(
+    @Body() dto: CreateGrillOrderDto,
+    @CurrentUser('userId') userId?: string,
+  ) {
+    return this.ordersService.create(dto, userId);
   }
 
   @Public()

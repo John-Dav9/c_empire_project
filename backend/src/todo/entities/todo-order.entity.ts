@@ -60,6 +60,10 @@ export class TodoOrder {
   })
   status: TodoOrderStatus;
 
+  /** ID de l'employé assigné à cette mission (stocké comme string, pas de FK stricte) */
+  @Column({ type: 'varchar', nullable: true })
+  assignedEmployeeId?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

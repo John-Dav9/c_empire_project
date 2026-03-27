@@ -9,6 +9,11 @@ interface NavItem {
   superAdminOnly?: boolean;
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
 @Component({
   selector: 'app-admin-layout',
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
@@ -27,33 +32,90 @@ export class AdminLayoutComponent {
 
   readonly userInitial = (this.currentUser?.email ?? 'U')[0].toUpperCase();
 
-  readonly navItems: NavItem[] = [
-    { icon: '📊', label: 'Tableau de bord',        route: '/super-admin/dashboard' },
-    { icon: '👥', label: 'Utilisateurs',            route: '/super-admin/users' },
-    { icon: '🏢', label: 'Secteurs',                route: '/super-admin/sectors',             superAdminOnly: true },
-    { icon: '🛍️', label: "Produits C'Shop",         route: '/super-admin/shop/products' },
-    { icon: '🏷️', label: "Promos C'Shop",           route: '/super-admin/shop/promotions' },
-    { icon: '🍖', label: "Produits C'Grill",        route: '/super-admin/grill/products' },
-    { icon: '🍱', label: "Menus C'Grill",           route: '/super-admin/grill/menus' },
-    { icon: '🧹', label: "Services C'Clean",        route: '/super-admin/clean/services' },
-    { icon: '🔧', label: "Services C'Todo",         route: '/super-admin/todo/services' },
-    { icon: '📋', label: 'Tâches employés',          route: '/super-admin/tasks' },
-    { icon: '🎉', label: "C'Events Catalogue",      route: '/super-admin/events/catalog' },
-    { icon: '🗓️', label: "C'Events Réservations",  route: '/super-admin/events/bookings' },
-    { icon: '🚚', label: "C'Express Livraisons",    route: '/super-admin/express/deliveries' },
-    { icon: '🛵', label: "C'Express Couriers",      route: '/super-admin/express/couriers' },
-    { icon: '🌍', label: "C'Express Import/Export", route: '/super-admin/express/import-export' },
-    { icon: '👷', label: 'Employés',                route: '/super-admin/employees' },
-    { icon: '🛒', label: 'Clients',                 route: '/super-admin/clients' },
-    { icon: '📦', label: 'Commandes globales',      route: '/super-admin/orders' },
-    { icon: '🎯', label: 'Campagnes fêtes',         route: '/super-admin/marketing/campaigns' },
-    { icon: '📰', label: 'Actualités',              route: '/super-admin/marketing/news' },
-    { icon: '🦶', label: 'Footer site',             route: '/super-admin/marketing/footer' },
-    { icon: '📄', label: 'Pages site',              route: '/super-admin/marketing/pages' },
+  readonly navGroups: NavGroup[] = [
+    {
+      label: 'Général',
+      items: [
+        { icon: '📊', label: 'Tableau de bord', route: '/super-admin/dashboard' },
+        { icon: '👥', label: 'Utilisateurs',    route: '/super-admin/users' },
+        { icon: '🏢', label: 'Secteurs',        route: '/super-admin/sectors', superAdminOnly: true },
+      ],
+    },
+    {
+      label: "C'Shop",
+      items: [
+        { icon: '🛍️', label: 'Produits',    route: '/super-admin/shop/products' },
+        { icon: '🏷️', label: 'Promotions',  route: '/super-admin/shop/promotions' },
+        { icon: '📦', label: 'Commandes',   route: '/super-admin/shop/orders' },
+      ],
+    },
+    {
+      label: "C'Grill",
+      items: [
+        { icon: '🍖', label: 'Produits',  route: '/super-admin/grill/products' },
+        { icon: '🍱', label: 'Menus',     route: '/super-admin/grill/menus' },
+        { icon: '🧾', label: 'Commandes', route: '/super-admin/grill/orders' },
+      ],
+    },
+    {
+      label: "C'Clean",
+      items: [
+        { icon: '🧹', label: 'Services',      route: '/super-admin/clean/services' },
+        { icon: '📋', label: 'Réservations',  route: '/super-admin/clean/bookings' },
+      ],
+    },
+    {
+      label: "C'Todo",
+      items: [
+        { icon: '🔧', label: 'Services',  route: '/super-admin/todo/services' },
+        { icon: '✅', label: 'Commandes', route: '/super-admin/todo/orders' },
+      ],
+    },
+    {
+      label: "C'Events",
+      items: [
+        { icon: '🎉', label: 'Catalogue',      route: '/super-admin/events/catalog' },
+        { icon: '🗓️', label: 'Réservations',  route: '/super-admin/events/bookings' },
+      ],
+    },
+    {
+      label: "C'Express",
+      items: [
+        { icon: '🚚', label: 'Livraisons',    route: '/super-admin/express/deliveries' },
+        { icon: '🛵', label: 'Couriers',      route: '/super-admin/express/couriers' },
+        { icon: '🌍', label: 'Import/Export', route: '/super-admin/express/import-export' },
+      ],
+    },
+    {
+      label: 'RH & Équipe',
+      items: [
+        { icon: '👷', label: 'Employés', route: '/super-admin/employees' },
+        { icon: '📋', label: 'Tâches',   route: '/super-admin/tasks' },
+        { icon: '📆', label: 'Agendas',  route: '/super-admin/schedule' },
+      ],
+    },
+    {
+      label: 'Clients & Commandes',
+      items: [
+        { icon: '🛒', label: 'Clients',            route: '/super-admin/clients' },
+        { icon: '📦', label: 'Commandes globales', route: '/super-admin/orders' },
+      ],
+    },
+    {
+      label: 'Marketing',
+      items: [
+        { icon: '🎯', label: 'Campagnes fêtes', route: '/super-admin/marketing/campaigns' },
+        { icon: '📰', label: 'Actualités',      route: '/super-admin/marketing/news' },
+        { icon: '🦶', label: 'Footer site',     route: '/super-admin/marketing/footer' },
+        { icon: '📄', label: 'Pages site',      route: '/super-admin/marketing/pages' },
+      ],
+    },
   ];
 
-  get visibleNavItems(): NavItem[] {
-    return this.navItems.filter((item) => !item.superAdminOnly || this.isSuperAdmin);
+  get visibleNavGroups(): NavGroup[] {
+    return this.navGroups
+      .map(g => ({ ...g, items: g.items.filter(i => !i.superAdminOnly || this.isSuperAdmin) }))
+      .filter(g => g.items.length > 0);
   }
 
   toggleSidebar(): void {

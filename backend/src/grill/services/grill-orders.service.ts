@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { GrillOrder } from '../entities/grill-order.entity';
@@ -19,6 +19,7 @@ import { GrillDeliveryMode } from '../enums/grill-delivery-mode.enum';
 import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 import { CexpressService } from 'src/express/express.service';
+import { NotificationsService } from 'src/core/notifications/notifications.service';
 
 @Injectable()
 export class GrillOrdersService {
@@ -38,12 +39,21 @@ export class GrillOrdersService {
     private readonly packRepo: Repository<GrillMenuPack>,
 
     private readonly cexpressService: CexpressService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // =========================
   // CREATE ORDER (PRODUCTS + PACKS)
   // =========================
-  async create(dto: CreateGrillOrderDto) {
+  findByUser(userId: string) {
+    return this.orderRepo.find({
+      where: { userId },
+      relations: { items: true },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async create(dto: CreateGrillOrderDto, userId?: string) {
     if (!dto.items?.length) {
       throw new BadRequestException('Aucun article');
     }
@@ -170,6 +180,7 @@ export class GrillOrdersService {
     const total = subtotal + deliveryFee;
 
     const order = this.orderRepo.create({
+      userId,
       fullName: dto.fullName,
       email: dto.email,
       phone: dto.phone,
@@ -212,7 +223,41 @@ export class GrillOrdersService {
   async updateStatus(id: string, status: GrillOrderStatus) {
     const order = await this.findOne(id);
     order.status = status;
-    return this.orderRepo.save(order);
+    const saved = await this.orderRepo.save(order);
+
+    try {
+      const labels: Partial<Record<GrillOrderStatus, string>> = {
+        [GrillOrderStatus.CONFIRMED]:        'Confirmée',
+        [GrillOrderStatus.PREPARING]:        'En préparation',
+        [GrillOrderStatus.READY]:            'Prête à récupérer',
+        [GrillOrderStatus.OUT_FOR_DELIVERY]: 'En cours de livraison',
+        [GrillOrderStatus.DELIVERED]:        'Livrée',
+        [GrillOrderStatus.CANCELLED]:        'Annulée',
+      };
+      const label = labels[status];
+      if (label) {
+        if (order.userId) {
+          await this.notificationsService.sendNotification({
+            userId: order.userId,
+            title: `Commande C'Grill — ${label}`,
+            message: `Votre commande #${id.substring(0, 8)} est maintenant : ${label}.`,
+            channel: 'IN_APP',
+          });
+        }
+        if (order.email) {
+          await this.notificationsService.sendNotification({
+            to: order.email,
+            title: `Commande C'Grill — ${label}`,
+            message: `Votre commande #${id.substring(0, 8)} est maintenant : ${label}.`,
+            channel: 'EMAIL',
+          });
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Notification échec commande grill ${id}`, err);
+    }
+
+    return saved;
   }
 
   // =========================
@@ -224,6 +269,27 @@ export class GrillOrdersService {
     order.paymentId = paymentId;
     order.status = GrillOrderStatus.PAID;
     await this.orderRepo.save(order);
+
+    try {
+      if (order.userId) {
+        await this.notificationsService.sendNotification({
+          userId: order.userId,
+          title: "Commande C'Grill — Paiement confirmé",
+          message: `Votre commande #${orderId.substring(0, 8)} a été payée. Nous préparons votre commande.`,
+          channel: 'IN_APP',
+        });
+      }
+      if (order.email) {
+        await this.notificationsService.sendNotification({
+          to: order.email,
+          title: "Commande C'Grill — Paiement confirmé",
+          message: `Votre commande #${orderId.substring(0, 8)} a été payée. Nous préparons votre commande.`,
+          channel: 'EMAIL',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Notification paiement grill ${orderId}`, err);
+    }
 
     // Déduction stock (produits simples + packs déjà vérifiés)
     for (const it of order.items) {

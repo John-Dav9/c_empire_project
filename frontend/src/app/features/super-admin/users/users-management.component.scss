@@ -252,6 +252,16 @@
       background: #8c2c09;
       color: #fff;
     }
+
+    &.btn-role {
+      background: #3b5bdb;
+      color: #fff;
+    }
+  }
+
+  .text-muted {
+    color: var(--ink-2);
+    font-size: 0.88rem;
   }
 
   .empty-state {
@@ -271,6 +281,83 @@
       color: var(--ink-1);
       font-weight: 700;
     }
+  }
+}
+
+/* ── Role change modal ───────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      cursor: pointer;
+      color: var(--ink-2);
+      line-height: 1;
+
+      &:hover { color: var(--ink-0); }
+    }
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+
+    .modal-user-info {
+      background: #f7f1e5;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.2rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+
+      label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--ink-1);
+      }
+    }
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--line);
   }
 }
 

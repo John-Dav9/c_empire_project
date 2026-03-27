@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   Res,
   ForbiddenException,
@@ -41,8 +43,12 @@ export class OrderController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Permissions('shop:orders:read')
   @Get()
-  getAllOrders() {
-    return this.orderService.findAllOrders();
+  getAllOrders(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('status') status?: string,
+  ) {
+    return this.orderService.findAllOrders(+page, +limit, status);
   }
 
   @Get(':id')
@@ -65,6 +71,28 @@ export class OrderController {
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
     return this.orderService.updateStatus(id, dto.status);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Permissions('shop:orders:update')
+  @Post(':id/assignees/:employeeId')
+  addAssignee(
+    @Param('id') id: string,
+    @Param('employeeId') employeeId: string,
+  ) {
+    return this.orderService.addAssignee(id, employeeId);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Permissions('shop:orders:update')
+  @Delete(':id/assignees/:employeeId')
+  removeAssignee(
+    @Param('id') id: string,
+    @Param('employeeId') employeeId: string,
+  ) {
+    return this.orderService.removeAssignee(id, employeeId);
   }
 
   @Get(':id/invoice')

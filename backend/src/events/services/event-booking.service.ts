@@ -20,6 +20,7 @@ import { User } from 'src/auth/entities/user.entity';
 import { PaymentReferenceType } from 'src/core/payments/payment-reference-type.enum';
 import { PaymentsService } from 'src/core/payments/payments.service';
 import { PaymentSuccessEvent } from 'src/core/payments/events/payment-success.event';
+import { NotificationsService } from 'src/core/notifications/notifications.service';
 
 @Injectable()
 export class EventBookingService {
@@ -33,6 +34,7 @@ export class EventBookingService {
     private readonly bookingRepository: Repository<EventBooking>,
 
     private readonly paymentsService: PaymentsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createBooking(
@@ -151,7 +153,32 @@ export class EventBookingService {
     }
 
     booking.status = EventBookingStatus.VALIDATED;
-    return this.bookingRepository.save(booking);
+    const saved = await this.bookingRepository.save(booking);
+
+    try {
+      const email = booking.user?.email;
+      const eventTitle = booking.event?.title ?? 'votre événement';
+      if (booking.user?.id) {
+        await this.notificationsService.sendNotification({
+          userId: booking.user.id,
+          title: `Réservation C'Events — Validée`,
+          message: `Votre réservation pour « ${eventTitle} » a été validée par notre équipe.`,
+          channel: 'IN_APP',
+        });
+      }
+      if (email) {
+        await this.notificationsService.sendNotification({
+          to: email,
+          title: `Réservation C'Events — Validée`,
+          message: `Votre réservation pour « ${eventTitle} » a été validée par notre équipe.`,
+          channel: 'EMAIL',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Notification validation échec ${bookingId}`, err);
+    }
+
+    return saved;
   }
 
   async refuseBooking(bookingId: string): Promise<EventBooking> {
@@ -166,6 +193,38 @@ export class EventBookingService {
     }
 
     booking.status = EventBookingStatus.REFUSED;
+    const saved = await this.bookingRepository.save(booking);
+
+    try {
+      const email = booking.user?.email;
+      const eventTitle = booking.event?.title ?? 'votre événement';
+      if (booking.user?.id) {
+        await this.notificationsService.sendNotification({
+          userId: booking.user.id,
+          title: `Réservation C'Events — Refusée`,
+          message: `Votre réservation pour « ${eventTitle} » n'a pas pu être acceptée. Contactez-nous pour plus d'informations.`,
+          channel: 'IN_APP',
+        });
+      }
+      if (email) {
+        await this.notificationsService.sendNotification({
+          to: email,
+          title: `Réservation C'Events — Refusée`,
+          message: `Votre réservation pour « ${eventTitle} » n'a pas pu être acceptée. Contactez-nous pour plus d'informations.`,
+          channel: 'EMAIL',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Notification refus échec ${bookingId}`, err);
+    }
+
+    return saved;
+  }
+
+  async assignEmployee(bookingId: string, employeeId: string | null): Promise<EventBooking> {
+    const booking = await this.bookingRepository.findOne({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    booking.assignedEmployeeId = employeeId;
     return this.bookingRepository.save(booking);
   }
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { User, UserListResponse, AdminStats, UserRole } from '../models/admin.models';
+import { User, UserListResponse, AdminStats, UserRole, EmployeeSpecialty } from '../models/admin.models';
 import { buildApiUrl } from '../../../core/config/api.config';
 
 @Injectable({
@@ -34,8 +34,8 @@ export class AdminService {
     return this.http.get<User>(`${this.apiUrl}/users/${id}`);
   }
 
-  updateUserRole(userId: string, role: UserRole): Observable<User> {
-    return this.http.patch<User>(`${this.apiUrl}/users/${userId}/role`, { role });
+  updateUserRole(userId: string, role: UserRole, specialty?: EmployeeSpecialty): Observable<User> {
+    return this.http.patch<User>(`${this.apiUrl}/users/${userId}/role`, { role, specialty });
   }
 
   toggleUserStatus(userId: string): Observable<User> {

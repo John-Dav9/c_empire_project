@@ -41,3 +41,10 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Config runtime — généré au déploiement (Docker/Vercel), ne jamais commiter
+# Ce fichier peut contenir l'URL de l'API de production
+public/config.js
+
+# Vercel
+.vercel/

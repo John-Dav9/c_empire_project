@@ -1,36 +1,50 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../admin/services/admin.service';
-import { User, UserRole } from '../../admin/models/admin.models';
+import { User, UserRole, EmployeeSpecialty } from '../../admin/models/admin.models';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-users-management',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [DatePipe, FormsModule],
   templateUrl: './users-management.component.html',
   styleUrls: ['./users-management.component.scss']
 })
 export class UsersManagementComponent implements OnInit {
   private adminService = inject(AdminService);
-  
+  private authService = inject(AuthService);
+
   users: User[] = [];
   loading = true;
   error: string | null = null;
-  
+
   // Filters
   searchTerm = '';
   selectedRole: UserRole | '' = '';
   selectedStatus: boolean | '' = '';
-  
+
   // Pagination
   currentPage = 1;
   totalPages = 1;
   pageSize = 10;
   totalUsers = 0;
 
+  // Role change modal
+  showRoleModal = false;
+  roleModalUser: User | null = null;
+  selectedNewRole: UserRole | '' = '';
+  selectedSpecialty: EmployeeSpecialty | '' = '';
+  savingRole = false;
+
   readonly userRoles = Object.values(UserRole);
   readonly UserRole = UserRole;
+  readonly EmployeeSpecialty = EmployeeSpecialty;
+  readonly specialtyOptions = Object.values(EmployeeSpecialty);
+
+  get isSuperAdmin(): boolean {
+    return this.authService.getCurrentUser()?.role === 'super_admin';
+  }
 
   ngOnInit() {
     this.loadUsers();
@@ -39,7 +53,7 @@ export class UsersManagementComponent implements OnInit {
   loadUsers() {
     this.loading = true;
     this.error = null;
-    
+
     const role = this.selectedRole || undefined;
     const isActive = this.selectedStatus === '' ? undefined : this.selectedStatus;
     const search = this.searchTerm.trim() || undefined;
@@ -52,8 +66,7 @@ export class UsersManagementComponent implements OnInit {
         this.currentPage = response.page;
         this.loading = false;
       },
-      error: (error) => {
-        console.error('Error loading users:', error);
+      error: () => {
         this.error = 'Erreur lors du chargement des utilisateurs';
         this.loading = false;
       }
@@ -84,60 +97,45 @@ export class UsersManagementComponent implements OnInit {
     }
   }
 
-  updateUserRole(userId: string, newRole: UserRole) {
-    if (confirm('Êtes-vous sûr de vouloir modifier le rôle de cet utilisateur ?')) {
-      this.adminService.updateUserRole(userId, newRole).subscribe({
-        next: () => {
-          this.loadUsers();
-        },
-        error: (error) => {
-          console.error('Error updating role:', error);
-          alert('Erreur lors de la mise à jour du rôle');
-        }
-      });
-    }
+  openRoleModal(user: User) {
+    this.roleModalUser = user;
+    this.selectedNewRole = user.role;
+    this.selectedSpecialty = user.specialty ?? '';
+    this.showRoleModal = true;
   }
 
-  promoteToAdmin(user: User) {
-    if (confirm(`Promouvoir ${user.email} au rôle Admin ?`)) {
-      this.adminService.updateUserRole(user.id, UserRole.ADMIN).subscribe({
-        next: () => {
-          this.loadUsers();
-          alert('Utilisateur promu en Admin avec succès');
-        },
-        error: (error) => {
-          console.error('Error promoting user to admin:', error);
-          alert(`Erreur: ${error.error?.message || 'Impossible de promouvoir cet utilisateur'}`);
-        }
-      });
-    }
+  closeRoleModal() {
+    this.showRoleModal = false;
+    this.roleModalUser = null;
+    this.selectedNewRole = '';
+    this.selectedSpecialty = '';
   }
 
-  promoteToSuperAdmin(user: User) {
-    if (confirm(`Promouvoir ${user.email} au rôle Super Admin ?`)) {
-      this.adminService.updateUserRole(user.id, UserRole.SUPER_ADMIN).subscribe({
-        next: () => {
-          this.loadUsers();
-          alert('Utilisateur promu en Super Admin avec succès');
-        },
-        error: (error) => {
-          console.error('Error promoting user to super admin:', error);
-          alert(`Erreur: ${error.error?.message || 'Impossible de promouvoir cet utilisateur'}`);
-        }
-      });
-    }
+  saveRoleChange() {
+    if (!this.roleModalUser || !this.selectedNewRole) return;
+    const specialty = this.selectedNewRole === UserRole.EMPLOYEE && this.selectedSpecialty
+      ? (this.selectedSpecialty as EmployeeSpecialty)
+      : undefined;
+
+    this.savingRole = true;
+    this.adminService.updateUserRole(this.roleModalUser.id, this.selectedNewRole as UserRole, specialty).subscribe({
+      next: () => {
+        this.closeRoleModal();
+        this.loadUsers();
+        this.savingRole = false;
+      },
+      error: (err) => {
+        alert(`Erreur: ${err.error?.message || 'Impossible de modifier le rôle'}`);
+        this.savingRole = false;
+      }
+    });
   }
 
   toggleUserStatus(userId: string) {
     if (confirm('Êtes-vous sûr de vouloir changer le statut de cet utilisateur ?')) {
       this.adminService.toggleUserStatus(userId).subscribe({
-        next: () => {
-          this.loadUsers();
-        },
-        error: (error) => {
-          console.error('Error toggling status:', error);
-          alert('Erreur lors du changement de statut');
-        }
+        next: () => this.loadUsers(),
+        error: () => alert('Erreur lors du changement de statut')
       });
     }
   }
@@ -145,13 +143,8 @@ export class UsersManagementComponent implements OnInit {
   deleteUser(userId: string, userEmail: string) {
     if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userEmail} ? Cette action est irréversible.`)) {
       this.adminService.deleteUser(userId).subscribe({
-        next: () => {
-          this.loadUsers();
-        },
-        error: (error) => {
-          console.error('Error deleting user:', error);
-          alert('Erreur lors de la suppression');
-        }
+        next: () => this.loadUsers(),
+        error: () => alert('Erreur lors de la suppression')
       });
     }
   }
@@ -173,6 +166,18 @@ export class UsersManagementComponent implements OnInit {
       case 'employee': return 'Employé';
       case 'client': return 'Client';
       default: return role;
+    }
+  }
+
+  getSpecialtyLabel(specialty: string): string {
+    switch (specialty) {
+      case 'livreur': return 'Livreur';
+      case 'evenementialiste': return 'Évènementialiste';
+      case 'coursier': return 'Coursier';
+      case 'nettoyeur': return 'Nettoyeur';
+      case 'bricoleur': return 'Bricoleur';
+      case 'point_relais': return 'Point Relais';
+      default: return specialty;
     }
   }
 }

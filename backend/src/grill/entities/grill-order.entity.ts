@@ -16,6 +16,10 @@ export class GrillOrder {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // Lien optionnel vers le compte utilisateur connecté
+  @Column({ nullable: true })
+  userId?: string;
+
   // Client (MVP)
   @Column({ length: 120 })
   fullName: string;

@@ -35,6 +35,8 @@ import { SectorsModule } from './core/sectors/sectors.module';
 import { TasksModule } from './tasks/tasks.module';
 import { HighlightsModule } from './core/highlights/highlights.module';
 import { SiteSettingsModule } from './core/site-settings/site-settings.module';
+import { ScheduleModule } from './schedule/schedule.module';
+import { ProfileModule } from './profiles/profile.module';
 
 @Module({
   imports: [
@@ -96,6 +98,8 @@ import { SiteSettingsModule } from './core/site-settings/site-settings.module';
     HighlightsModule,
     SiteSettingsModule,
     TasksModule,
+    ScheduleModule,
+    ProfileModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

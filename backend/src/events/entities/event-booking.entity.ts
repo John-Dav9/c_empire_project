@@ -46,6 +46,10 @@ export class EventBooking {
   @ManyToOne(() => Payment, { nullable: true })
   payment?: Payment;
 
+  /** ID de l'employé assigné à cet événement (stocké comme string, pas de FK stricte) */
+  @Column({ type: 'varchar', nullable: true })
+  assignedEmployeeId?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
