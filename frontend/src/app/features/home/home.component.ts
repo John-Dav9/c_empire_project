@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
 import { buildApiUrl, buildMediaUrl } from '../../core/config/api.config';
 import { ContentPage, ContentPagesService } from '../../core/services/content-pages.service';
 
@@ -69,7 +68,7 @@ interface HomeContent {
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, MatButtonModule],
+  imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',

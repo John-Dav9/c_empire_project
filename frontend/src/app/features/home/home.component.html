@@ -1,183 +1,181 @@
-<div class="home-container page-enter">
-  <section class="hero app-shell-card">
-    <div
-      class="hero-background"
-      role="region"
-      aria-label="Diaporama de fond C'EMPIRE"
-    >
-      <div
-        class="slides-track"
-        [style.transform]="'translateX(-' + (currentSlide() * 100) + '%)'"
-      >
+<div class="home-wrap page-enter">
+
+  <!-- ══════════════════════════════════
+       HERO — cinématique pleine hauteur
+       ══════════════════════════════════ -->
+  <section class="hero" aria-label="Présentation C'EMPIRE">
+    <!-- Carrousel de fond -->
+    <div class="hero-bg" role="region" aria-hidden="true">
+      <div class="hero-track" [style.transform]="'translateX(-' + (currentSlide() * 100) + '%)'">
         @for (slide of heroSlides; track slide.src) {
-          <div class="slide">
-            <div
-              class="slide-bg"
-              role="img"
-              [attr.aria-label]="slide.alt"
-              [style.background-image]="'url(' + slide.src + ')'"
-            ></div>
+          <div class="hero-slide">
+            <div class="hero-slide-img" [style.background-image]="'url(' + slide.src + ')'"></div>
           </div>
         }
       </div>
-      <div class="hero-bg-overlay"></div>
-
-      @if (heroSlides.length > 1) {
-        <div class="slide-dots">
-          @for (slide of heroSlides; track slide.src; let i = $index) {
-            <span
-              class="dot"
-              [class.active]="i === currentSlide()"
-              aria-hidden="true"
-            ></span>
-          }
-        </div>
-      }
+      <!-- Overlay sombre + chaud -->
+      <div class="hero-overlay"></div>
+      <!-- Dégradé bas -->
+      <div class="hero-fade"></div>
     </div>
 
-    <div class="hero-content">
+    <!-- Contenu héro -->
+    <div class="hero-body">
+      <!-- Logo -->
       @if (brandLogoSrc()) {
-        <div class="hero-brand-mark">
+        <div class="hero-logo-wrap">
           <img
             [src]="brandLogoSrc()"
-            alt="Logo C'EMPIRE"
-            loading="lazy"
+            alt="C'EMPIRE"
+            width="180"
+            height="60"
+            loading="eager"
             (error)="onBrandLogoError()"
           />
         </div>
       }
-      <span class="eyebrow">{{ homeContent().eyebrow }}</span>
-      <h1>{{ homeContent().heroTitle }}</h1>
-      <p>{{ homeContent().heroText }}</p>
-      <div class="hero-actions">
-        <button
-          mat-raised-button
-          color="primary"
-          class="home-btn home-btn-primary"
+
+      <!-- Badge eyebrow -->
+      <span class="eyebrow-badge">
+        <span class="eyebrow-dot"></span>
+        {{ homeContent().eyebrow }}
+      </span>
+
+      <!-- Titre éditorial -->
+      <h1 class="hero-title">{{ homeContent().heroTitle }}</h1>
+
+      <!-- Sous-titre -->
+      <p class="hero-subtitle">{{ homeContent().heroText }}</p>
+
+      <!-- CTAs -->
+      <div class="hero-ctas">
+        <a
+          class="btn-primary"
           [routerLink]="[resolveCampaignRoute(homeContent().primaryCtaUrl)]"
         >
           {{ homeContent().primaryCtaLabel }}
-        </button>
-        <button
-          mat-stroked-button
-          class="home-btn home-btn-secondary"
+          <span class="material-icons btn-icon">arrow_forward</span>
+        </a>
+        <a
+          class="btn-ghost"
           [routerLink]="[resolveCampaignRoute(homeContent().secondaryCtaUrl)]"
         >
           {{ homeContent().secondaryCtaLabel }}
-        </button>
+        </a>
       </div>
     </div>
-    <div class="hero-panel">
+
+    <!-- Stats — barre basse -->
+    <div class="hero-stats">
       @for (stat of homeContent().stats; track stat.label) {
-        <div class="kpi">
+        <div class="stat-item">
           <strong>{{ stat.value }}</strong>
           <span>{{ stat.label }}</span>
         </div>
       }
     </div>
+
+    <!-- Dots carrousel -->
+    @if (heroSlides.length > 1) {
+      <div class="hero-dots" aria-hidden="true">
+        @for (slide of heroSlides; track slide.src; let i = $index) {
+          <span class="hero-dot" [class.active]="i === currentSlide()"></span>
+        }
+      </div>
+    }
   </section>
 
-  <section class="features">
-    <div class="section-head">
-      <h2>Écosystème C'EMPIRE</h2>
-      <p>Chaque service garde son identité, le design garde sa cohérence.</p>
+  <!-- ══════════════════════════════════
+       SERVICES — layout éditorial
+       ══════════════════════════════════ -->
+  <section class="services-section">
+    <div class="section-intro">
+      <span class="section-tag">
+        <span class="tag-dot"></span>
+        Écosystème
+      </span>
+      <h2>Nos services <span class="accent-word">C'EMPIRE</span></h2>
+      <p>Six univers distincts. Un seul parcours continu.</p>
     </div>
 
-    <div class="sector-stories">
+    <div class="service-list">
       @for (sector of sectorStories(); track sector.route; let i = $index) {
-        <article [class]="getSectorClasses(sector.route, i)">
-          <div class="sector-copy">
+        <article
+          class="service-card"
+          [class.reversed]="i % 2 === 1"
+          [class]="'service-card theme-' + sector.route.slice(1) + (i % 2 === 1 ? ' reversed' : '')"
+          (mouseenter)="pauseSectorAutoplay()"
+          (mouseleave)="resumeSectorAutoplay()"
+        >
+          <!-- Colonne texte -->
+          <div class="service-copy">
             @if (sector.logoSrc) {
-              <div class="sector-logo-wrap top">
+              <div class="service-logo-wrap">
                 <img
-                  class="sector-logo"
+                  class="service-logo"
                   [src]="sector.logoSrc"
                   [alt]="sector.logoAlt || ('Logo ' + sector.name)"
+                  width="130"
+                  height="60"
                   loading="lazy"
                   (error)="onSectorLogoError(sector)"
                 />
               </div>
             }
-            <h3>{{ sector.name }}</h3>
-            <p class="sector-description">{{ sector.description }}</p>
-            <button
-              mat-raised-button
-              color="primary"
-              class="home-btn home-btn-primary sector-cta-btn"
-              [routerLink]="[sector.route]"
-            >
+            <h3 class="service-name">{{ sector.name }}</h3>
+            <p class="service-desc">{{ sector.description }}</p>
+            <a class="btn-service" [routerLink]="[sector.route]">
               {{ sector.ctaLabel }}
-            </button>
+              <span class="material-icons btn-icon">arrow_forward</span>
+            </a>
           </div>
 
-          <div
-            class="sector-visual"
-            role="region"
-            [attr.aria-label]="'Story ' + sector.name"
-            (mouseenter)="pauseSectorAutoplay()"
-            (mouseleave)="resumeSectorAutoplay()"
-          >
-            <div class="sector-track" [style.transform]="sectorTransform(i)">
+          <!-- Colonne visuel / carrousel -->
+          <div class="service-visual" [attr.aria-label]="'Galerie ' + sector.name">
+            <div class="service-track" [style.transform]="sectorTransform(i)">
               @for (slide of sector.slides; track slide.src) {
-                <div class="sector-slide">
+                <div class="service-slide">
                   <div
-                    class="sector-slide-bg"
+                    class="service-slide-img"
                     [style.background-image]="'url(' + slide.src + ')'"
                   ></div>
                 </div>
               }
             </div>
 
+            <!-- Navigation carrousel -->
             @if (sector.slides.length > 1) {
               <button
-                class="sector-nav prev"
+                class="slide-btn prev"
                 type="button"
                 (click)="prevSectorSlide(i)"
                 aria-label="Image précédente"
-              >
-                ‹
-              </button>
+              >‹</button>
               <button
-                class="sector-nav next"
+                class="slide-btn next"
                 type="button"
                 (click)="nextSectorSlide(i)"
                 aria-label="Image suivante"
-              >
-                ›
-              </button>
+              >›</button>
             }
 
-            <div class="sector-caption">
+            <!-- Caption -->
+            <div class="slide-caption">
               <h4>{{ sector.slides[sectorSlideIndex()[i]]?.title }}</h4>
               <p>{{ sector.slides[sectorSlideIndex()[i]]?.subtitle }}</p>
             </div>
 
+            <!-- Compteur + dots -->
             @if (sector.slides.length > 1) {
-              <div class="sector-dots">
-                @for (slide of sector.slides; track slide.src; let dotIndex = $index) {
+              <div class="slide-counter">{{ sectorSlideIndex()[i] + 1 }}/{{ sector.slides.length }}</div>
+              <div class="slide-dots">
+                @for (slide of sector.slides; track slide.src; let di = $index) {
                   <button
                     type="button"
-                    class="sector-dot"
-                    [class.active]="dotIndex === sectorSlideIndex()[i]"
-                    (click)="setSectorSlide(i, dotIndex)"
-                    [attr.aria-label]="'Aller a image ' + (dotIndex + 1)"
-                  ></button>
-                }
-              </div>
-
-              <div class="sector-counter">
-                {{ sectorSlideIndex()[i] + 1 }}/{{ sector.slides.length }}
-              </div>
-
-              <div class="sector-thumbs">
-                @for (slide of sector.slides; track slide.src; let thumbIndex = $index) {
-                  <button
-                    type="button"
-                    class="sector-thumb"
-                    [class.active]="thumbIndex === sectorSlideIndex()[i]"
-                    [style.background-image]="'url(' + slide.src + ')'"
-                    (click)="setSectorSlide(i, thumbIndex)"
-                    [attr.aria-label]="'Miniature image ' + (thumbIndex + 1)"
+                    class="slide-dot"
+                    [class.active]="di === sectorSlideIndex()[i]"
+                    (click)="setSectorSlide(i, di)"
+                    [attr.aria-label]="'Image ' + (di + 1)"
                   ></button>
                 }
               </div>
@@ -188,42 +186,58 @@
     </div>
   </section>
 
+  <!-- ══════════════════════════════════
+       À LA UNE — campagnes
+       ══════════════════════════════════ -->
   @if (featuredCampaigns().length > 0 || featuredLoading()) {
-    <section class="highlights app-shell-card">
-      <div class="section-head">
-        <h2>A la une</h2>
-        <p>Offres saisonnieres et packs speciaux selon les fetes de l'annee.</p>
+    <section class="highlights-section">
+      <div class="section-intro">
+        <span class="section-tag">
+          <span class="tag-dot"></span>
+          Offres spéciales
+        </span>
+        <h2>À la <span class="accent-word">une</span></h2>
+        <p>Offres saisonnières et packs spéciaux selon les fêtes de l'année.</p>
       </div>
 
       @if (featuredLoading()) {
-        <div class="highlight-loading">Chargement des campagnes...</div>
-      }
-      @if (highlightsError()) {
-        <div class="highlight-error">{{ highlightsError() }}</div>
+        <div class="campaign-grid">
+          @for (_ of [1, 2, 3]; track $index) {
+            <div class="campaign-skeleton">
+              <div class="skeleton sk-pill"></div>
+              <div class="skeleton sk-title"></div>
+              <div class="skeleton sk-item"></div>
+              <div class="skeleton sk-item"></div>
+            </div>
+          }
+        </div>
       }
 
-      @if (!featuredLoading()) {
+      @if (highlightsError()) {
+        <div class="error-banner">
+          <span class="material-icons">warning_amber</span>
+          {{ highlightsError() }}
+        </div>
+      }
+
+      @if (!featuredLoading() && featuredCampaigns().length > 0) {
         <div class="campaign-grid">
           @for (campaign of featuredCampaigns(); track campaign.id) {
-            <article class="campaign-card">
-              <header class="campaign-header">
-                <span class="campaign-pill">{{ campaign.tabLabel || ('Speciale ' + campaign.festivalName) }}</span>
+            <article class="campaign-card app-shell-card">
+              <div class="campaign-head">
+                <span class="campaign-pill">{{ campaign.tabLabel || ('Spéciale ' + campaign.festivalName) }}</span>
                 <h3>{{ campaign.title }}</h3>
-              </header>
-
+              </div>
               @if (campaign.items?.length) {
                 <div class="campaign-items">
                   @for (item of campaign.items!; track item.title) {
                     <a class="campaign-item" [routerLink]="[resolveCampaignRoute(item.route)]">
                       @if (item.imageUrl) {
-                        <div
-                          class="campaign-item-image"
-                          [style.background-image]="'url(' + item.imageUrl + ')'"
-                        ></div>
+                        <div class="campaign-item-img" [style.background-image]="'url(' + item.imageUrl + ')'"></div>
                       }
                       <div class="campaign-item-copy">
                         <strong>{{ item.title }}</strong>
-                        <span>{{ item.sector }}</span>
+                        <span class="campaign-sector">{{ item.sector }}</span>
                         @if (item.description) {
                           <p>{{ item.description }}</p>
                         }
@@ -239,23 +253,40 @@
     </section>
   }
 
+  <!-- ══════════════════════════════════
+       ACTUALITÉS
+       ══════════════════════════════════ -->
   @if (newsMessages().length > 0 || featuredLoading()) {
-    <section class="news app-shell-card">
-      <div class="section-head">
-        <h2>Actualites</h2>
-        <p>Messages importants publies par l'administration.</p>
+    <section class="news-section">
+      <div class="section-intro">
+        <span class="section-tag">
+          <span class="tag-dot"></span>
+          Actualités
+        </span>
+        <h2>Dernières <span class="accent-word">nouvelles</span></h2>
+        <p>Messages importants publiés par l'administration.</p>
       </div>
 
       @if (featuredLoading()) {
-        <div class="news-loading">Chargement des actualites...</div>
+        <div class="news-list">
+          @for (_ of [1, 2]; track $index) {
+            <div class="news-skeleton">
+              <div class="skeleton sk-title"></div>
+              <div class="skeleton sk-text"></div>
+            </div>
+          }
+        </div>
       }
 
       @if (!featuredLoading()) {
         <div class="news-list">
           @for (news of newsMessages(); track news.id) {
-            <article class="news-card">
-              <h3>{{ news.title }}</h3>
-              <p>{{ news.message }}</p>
+            <article class="news-card app-shell-card">
+              <span class="news-icon material-icons">campaign</span>
+              <div>
+                <h3>{{ news.title }}</h3>
+                <p>{{ news.message }}</p>
+              </div>
             </article>
           }
         </div>
@@ -263,16 +294,25 @@
     </section>
   }
 
-  <section class="cta app-shell-card">
-    <h2>{{ homeContent().finalCtaTitle }}</h2>
-    <p>{{ homeContent().finalCtaText }}</p>
-    <button
-      mat-raised-button
-      color="primary"
-      class="home-btn home-btn-primary"
-      [routerLink]="[resolveCampaignRoute(homeContent().finalCtaUrl)]"
-    >
-      {{ homeContent().finalCtaLabel }}
-    </button>
+  <!-- ══════════════════════════════════
+       CTA FINAL — dark section
+       ══════════════════════════════════ -->
+  <section class="final-cta">
+    <div class="cta-inner">
+      <span class="cta-eyebrow">Prêt à commencer ?</span>
+      <h2>{{ homeContent().finalCtaTitle }}</h2>
+      <p>{{ homeContent().finalCtaText }}</p>
+      <a
+        class="btn-primary btn-large"
+        [routerLink]="[resolveCampaignRoute(homeContent().finalCtaUrl)]"
+      >
+        {{ homeContent().finalCtaLabel }}
+        <span class="material-icons btn-icon">arrow_forward</span>
+      </a>
+    </div>
+    <!-- Décoration -->
+    <div class="cta-glow cta-glow-left"></div>
+    <div class="cta-glow cta-glow-right"></div>
   </section>
+
 </div>
