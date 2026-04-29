@@ -74,10 +74,12 @@ import { ProfileModule } from './profiles/profile.module';
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      entities: [User, Profile], // Entités explicites (les autres sont chargées via autoLoadEntities)
-      autoLoadEntities: true, // Charge automatiquement toutes les entités déclarées dans les modules
-      // En dev : synchronize=true crée/modifie les tables automatiquement
-      // En prod : synchronize=false — les migrations sont gérées manuellement pour éviter la perte de données
+      // SSL requis par Supabase (et tout PostgreSQL hébergé en production)
+      ssl: process.env.NODE_ENV === 'production'
+        ? { rejectUnauthorized: false }
+        : false,
+      entities: [User, Profile],
+      autoLoadEntities: true,
       synchronize: process.env.NODE_ENV !== 'production',
     }),
 
