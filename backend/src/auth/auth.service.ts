@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User } from './entities/user.entity';
@@ -55,9 +55,11 @@ export class AuthService {
    * Inscription d'un nouvel utilisateur
    */
   async signup(dto: SignupDto): Promise<AuthResponse> {
-    // Vérifie l'unicité de l'email avant toute création
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // Recherche insensible à la casse pour éviter les doublons (ex: Test@Gmail.com et test@gmail.com)
     const existing = await this.userRepository.findOne({
-      where: { email: dto.email },
+      where: { email: ILike(normalizedEmail) },
     });
 
     if (existing) {
@@ -69,7 +71,7 @@ export class AuthService {
 
     // Tous les nouveaux comptes créés via signup ont le rôle CLIENT par défaut
     const user = this.userRepository.create({
-      email: dto.email,
+      email: normalizedEmail,
       password: hashedPassword,
       firstname: dto.firstname || '',
       lastname: dto.lastname || '',
@@ -101,8 +103,10 @@ export class AuthService {
    * Connexion utilisateur
    */
   async signin(dto: SigninDto): Promise<AuthResponse> {
+    // ILike = recherche insensible à la casse en PostgreSQL
+    // Corrige le cas où l'email a été stocké avec une casse différente de celle saisie
     const user = await this.userRepository.findOne({
-      where: { email: dto.email },
+      where: { email: ILike(dto.email.toLowerCase().trim()) },
     });
 
     // Message générique intentionnel : ne pas révéler si l'email existe en base
@@ -378,17 +382,6 @@ export class AuthService {
     hash: string,
   ): Promise<boolean> {
     return bcrypt.compare(password, hash);
-  }
-
-  /** @deprecated Remplacée par generateTokens() — conservée pour compatibilité éventuelle */
-  private async signToken(user: User): Promise<string> {
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    return this.jwtService.signAsync(payload);
   }
 
   /**

@@ -1,17 +1,18 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   MinLength,
 } from 'class-validator';
 
 export class SignupDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase().trim() : value))
   @IsEmail()
-  email: string;
+  email!: string;
 
   @MinLength(6)
-  password: string;
+  password!: string;
 
   @IsOptional()
   @IsString()
