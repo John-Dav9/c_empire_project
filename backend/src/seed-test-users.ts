@@ -15,18 +15,30 @@ interface TestAccount {
   specialty?: EmployeeSpecialty;
 }
 
+function getDefaultPassword(): string {
+  const password = process.env.ADMIN_DEFAULT_PASSWORD;
+  if (!password) {
+    throw new Error(
+      'ADMIN_DEFAULT_PASSWORD doit être défini dans .env avant de lancer le seed des comptes de test.',
+    );
+  }
+  return password;
+}
+
+const DEFAULT_PASSWORD = getDefaultPassword();
+
 const TEST_ACCOUNTS: TestAccount[] = [
   // ── Admins ──────────────────────────────────────────────────────────────
   {
     email: 'admin@cempire.com',
-    password: process.env.ADMIN_DEFAULT_PASSWORD || 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Super',
     lastname: 'Admin',
     role: UserRole.SUPER_ADMIN,
   },
   {
     email: 'manager@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Manager',
     lastname: 'Admin',
     role: UserRole.ADMIN,
@@ -34,7 +46,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   // ── Clients ─────────────────────────────────────────────────────────────
   {
     email: 'client@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Marie',
     lastname: 'Client',
     role: UserRole.CLIENT,
@@ -42,7 +54,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   // ── Employés par spécialité ──────────────────────────────────────────────
   {
     email: 'livreur@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Paul',
     lastname: 'Livreur',
     role: UserRole.EMPLOYEE,
@@ -50,7 +62,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   },
   {
     email: 'evenementialiste@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Sophie',
     lastname: 'Evenements',
     role: UserRole.EMPLOYEE,
@@ -58,7 +70,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   },
   {
     email: 'coursier@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Luc',
     lastname: 'Coursier',
     role: UserRole.EMPLOYEE,
@@ -66,7 +78,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   },
   {
     email: 'nettoyeur@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Awa',
     lastname: 'Clean',
     role: UserRole.EMPLOYEE,
@@ -74,7 +86,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   },
   {
     email: 'bricoleur@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Moussa',
     lastname: 'Todo',
     role: UserRole.EMPLOYEE,
@@ -82,7 +94,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
   },
   {
     email: 'relais@cempire.com',
-    password: 'ChangeMe123!',
+    password: DEFAULT_PASSWORD,
     firstname: 'Boutique',
     lastname: 'Relais',
     role: UserRole.EMPLOYEE,
@@ -125,15 +137,15 @@ async function bootstrap() {
 
   console.log('\n📋 Récapitulatif des comptes de test :');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('  Email                          Mot de passe    Rôle            Spécialité');
+  console.log('  Email                          Rôle            Spécialité');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   for (const a of TEST_ACCOUNTS) {
     const emailPad = a.email.padEnd(33);
-    const passPad = a.password.padEnd(16);
     const rolePad = a.role.padEnd(16);
     const spec = a.specialty ?? '-';
-    console.log(`  ${emailPad}${passPad}${rolePad}${spec}`);
+    console.log(`  ${emailPad}${rolePad}${spec}`);
   }
+  console.log('  (mot de passe : celui défini dans ADMIN_DEFAULT_PASSWORD)');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   await app.close();

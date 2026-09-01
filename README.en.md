@@ -46,19 +46,14 @@ npm run start:dev         # http://localhost:4200
 
 ## Test Accounts
 
-After running `npm run seed:test-users`:
+After running `npm run seed:test-users`, an account is created for each role (super admin, admin,
+client, delivery driver, event specialist, courier, cleaner, handyman, relay point) using the
+email `<role>@cempire.com`.
 
-| Role | Email | Password |
-|------|-------|----------|
-| Super Admin | `superadmin@cempire.com` | `ChangeMe123!` |
-| Admin | `admin@cempire.com` | `ChangeMe123!` |
-| Client | `client@cempire.com` | `ChangeMe123!` |
-| Delivery driver | `livreur@cempire.com` | `ChangeMe123!` |
-| Event specialist | `events@cempire.com` | `ChangeMe123!` |
-| Courier | `coursier@cempire.com` | `ChangeMe123!` |
-| Cleaner | `nettoyeur@cempire.com` | `ChangeMe123!` |
-| Handyman | `bricoleur@cempire.com` | `ChangeMe123!` |
-| Relay point | `relais@cempire.com` | `ChangeMe123!` |
+Their password is whatever you set in the `ADMIN_DEFAULT_PASSWORD` environment variable (see
+[`backend/src/seed-test-users.ts`](backend/src/seed-test-users.ts)) — set it to a strong,
+locally-generated value before running the script. Never commit the real password here, and never
+reuse these accounts in production.
 
 ## User Roles
 
@@ -113,22 +108,25 @@ docs/
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_USER=c_empire_user
-DB_PASSWORD=empire123
+DB_PASSWORD=<postgres-password>
 DB_NAME=c_empire
 
-JWT_ACCESS_SECRET=dev_secret
-JWT_REFRESH_SECRET=dev_refresh_secret
+JWT_ACCESS_SECRET=<generate-a-strong-random-value>
+JWT_REFRESH_SECRET=<generate-a-strong-random-value>
 
 FRONTEND_ORIGIN=http://localhost:4200
 APP_BASE_URL=http://localhost:4200
 
 MAIL_HOST=smtp.gmail.com
-MAIL_USER=your@email.com
-MAIL_PASS=your-app-password
+MAIL_USER=<your@email.com>
+MAIL_PASS=<app-password>
 
-STRIPE_SECRET_KEY=sk_test_...
-ADMIN_DEFAULT_PASSWORD=ChangeMe123!
+STRIPE_SECRET_KEY=<stripe-secret-key>
+ADMIN_DEFAULT_PASSWORD=<strong-password-set-locally>
 ```
+
+> None of these are real values — they're format examples. Generate strong, unique secrets (e.g.
+> `openssl rand -base64 32`) and keep them only in your local `.env`, never in a committed file.
 
 ### Frontend (`public/config.js`)
 

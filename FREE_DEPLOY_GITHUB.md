@@ -31,9 +31,9 @@ $env:DB_PORT="5432"
 $env:DB_USER="..."
 $env:DB_PASSWORD="..."
 $env:DB_NAME="..."
-$env:JWT_ACCESS_SECRET="temp"
-$env:JWT_REFRESH_SECRET="temp"
-$env:ADMIN_DEFAULT_PASSWORD="ChangeMe123!"
+$env:JWT_ACCESS_SECRET="<génère une valeur aléatoire forte>"
+$env:JWT_REFRESH_SECRET="<génère une valeur aléatoire forte>"
+$env:ADMIN_DEFAULT_PASSWORD="<choisis un mot de passe fort, propre à ce déploiement>"
 npm run db:bootstrap
 npm run seed:admin
 ```

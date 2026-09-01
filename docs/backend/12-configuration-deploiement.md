@@ -9,12 +9,12 @@
 DB_HOST=127.0.0.1          # En prod : host Render PostgreSQL
 DB_PORT=5432
 DB_USER=c_empire_user
-DB_PASSWORD=empire123
+DB_PASSWORD=<mot-de-passe-postgres>
 DB_NAME=c_empire
 
 # ── JWT ──────────────────────────────────────────────────────────
-JWT_ACCESS_SECRET=dev_access_secret_key_change_in_production
-JWT_REFRESH_SECRET=dev_refresh_secret_key_change_in_production
+JWT_ACCESS_SECRET=<générer-une-valeur-aléatoire-forte>
+JWT_REFRESH_SECRET=<générer-une-valeur-aléatoire-forte>
 JWT_EXPIRATION=3600s        # Durée de l'access token
 
 # ── CORS ─────────────────────────────────────────────────────────
@@ -29,18 +29,18 @@ PORT=3000
 # ── Email (Nodemailer) ───────────────────────────────────────────
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USER=tonEmail@gmail.com
-MAIL_PASS=tonAppPassword             # App password Gmail, pas ton mot de passe
+MAIL_USER=<ton-email@gmail.com>
+MAIL_PASS=<mot-de-passe-application>  # App password Gmail, pas ton mot de passe
 MAIL_FROM=no-reply@cempire.com
 
 # ── Paiements Stripe ─────────────────────────────────────────────
-STRIPE_SECRET_KEY=sk_live_...        # Ou sk_test_... en dev
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_SECRET_KEY=<clé-secrète-stripe>        # sk_live_... en prod, sk_test_... en dev
+STRIPE_WEBHOOK_SECRET=<secret-webhook-stripe>
 
 # ── Paiements Mobile Money ───────────────────────────────────────
-MTN_WEBHOOK_SECRET=...
-ORANGE_WEBHOOK_SECRET=...
-PAYMENT_WEBHOOK_SECRET=...
+MTN_WEBHOOK_SECRET=<secret-webhook-mtn>
+ORANGE_WEBHOOK_SECRET=<secret-webhook-orange>
+PAYMENT_WEBHOOK_SECRET=<secret-webhook-paiement>
 PAYMENT_WEBHOOK_STRICT=true          # Valider les signatures en prod
 
 # ── Comportement paiement ────────────────────────────────────────
@@ -50,8 +50,12 @@ SMS_PROVIDER=disabled
 WHATSAPP_PROVIDER=disabled
 
 # ── Admin ────────────────────────────────────────────────────────
-ADMIN_DEFAULT_PASSWORD=ChangeMe123!  # Mot de passe par défaut des comptes seedés
+ADMIN_DEFAULT_PASSWORD=<mot-de-passe-fort-défini-localement>  # Mot de passe des comptes seedés — jamais commité
 ```
+
+> Toutes ces valeurs sont des exemples de format, pas de vrais secrets. Génère des valeurs fortes et
+> uniques (ex. `openssl rand -base64 32`) et garde-les uniquement dans les variables d'environnement
+> de ton hébergeur / ton `.env` local — jamais dans un fichier commité.
 
 ---
 
@@ -187,10 +191,10 @@ window.__CEMPIRE_CONFIG__ = {
 # Vérifier que l'API répond
 curl https://c-empire.onrender.com/api/health
 
-# Se connecter avec l'admin
+# Se connecter avec l'admin (remplace <mot-de-passe> par la valeur réelle, jamais commitée)
 curl -X POST https://c-empire.onrender.com/api/auth/signin \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@cempire.com","password":"ChangeMe123!"}'
+  -d '{"email":"admin@cempire.com","password":"<mot-de-passe>"}'
 
 # Lister les produits (route publique)
 curl https://c-empire.onrender.com/api/cshop/products

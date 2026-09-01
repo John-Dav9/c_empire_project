@@ -20,6 +20,6 @@ if errorlevel 1 (
 echo.
 echo Base de donnees initialisee avec succes!
 echo Utilisateur: c_empire_user
-echo Mot de passe: empire123
+echo Mot de passe: (celui defini dans init-db.sql / votre .env local)
 echo Base de donnees: c_empire
 pause

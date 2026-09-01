@@ -51,7 +51,7 @@ services:
     volumes:
       - backend_uploads:/app/uploads
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   frontend:
     build:
@@ -62,7 +62,7 @@ services:
     environment:
       API_BASE_URL: ${API_BASE_URL:-/api}
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
 
 volumes:
   postgres_data:

@@ -150,12 +150,12 @@ npm run start:dev   # http://localhost:4200
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_USER=c_empire_user
-DB_PASSWORD=empire123
+DB_PASSWORD=<mot-de-passe-postgres>
 DB_NAME=c_empire
 
 # JWT
-JWT_ACCESS_SECRET=dev_access_secret_key_change_in_production
-JWT_REFRESH_SECRET=dev_refresh_secret_key_change_in_production
+JWT_ACCESS_SECRET=<générer-une-valeur-aléatoire-forte>
+JWT_REFRESH_SECRET=<générer-une-valeur-aléatoire-forte>
 JWT_EXPIRATION=3600s
 
 # CORS (frontend autorisé)
@@ -167,17 +167,19 @@ APP_BASE_URL=http://localhost:4200
 # Email (Nodemailer)
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USER=ton-email@gmail.com
-MAIL_PASS=ton-app-password
+MAIL_USER=<ton-email@gmail.com>
+MAIL_PASS=<mot-de-passe-application>
 MAIL_FROM=no-reply@cempire.com
 
 # Paiements
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_SECRET_KEY=<clé-secrète-stripe>
+STRIPE_WEBHOOK_SECRET=<secret-webhook-stripe>
 
 # Admin
-ADMIN_DEFAULT_PASSWORD=ChangeMe123!
+ADMIN_DEFAULT_PASSWORD=<mot-de-passe-fort-défini-localement>
 ```
+
+> Aucune de ces valeurs ne doit être une vraie clé ou un vrai mot de passe : ce sont des exemples de format. Génère des secrets forts et uniques (ex. `openssl rand -base64 32`) et garde-les uniquement dans ton `.env` local, jamais dans un fichier commité.
 
 ### Frontend (`public/config.js`)
 
@@ -193,19 +195,14 @@ window.__CEMPIRE_CONFIG__ = { apiBaseUrl: 'https://c-empire.onrender.com/api' };
 
 ## Comptes de test
 
-Après `npm run seed:test-users` :
+Après `npm run seed:test-users`, des comptes sont créés pour chaque rôle (super admin, admin,
+client, livreur, événementialiste, coursier, nettoyeur, bricoleur, point relais) avec les emails
+`<role>@cempire.com`.
 
-| Rôle | Email | Mot de passe |
-|------|-------|-------------|
-| Super Admin | `superadmin@cempire.com` | `ChangeMe123!` |
-| Admin | `admin@cempire.com` | `ChangeMe123!` |
-| Client | `client@cempire.com` | `ChangeMe123!` |
-| Livreur | `livreur@cempire.com` | `ChangeMe123!` |
-| Événementialiste | `events@cempire.com` | `ChangeMe123!` |
-| Coursier | `coursier@cempire.com` | `ChangeMe123!` |
-| Nettoyeur | `nettoyeur@cempire.com` | `ChangeMe123!` |
-| Bricoleur | `bricoleur@cempire.com` | `ChangeMe123!` |
-| Point Relais | `relais@cempire.com` | `ChangeMe123!` |
+Leur mot de passe est défini par la variable d'environnement `ADMIN_DEFAULT_PASSWORD` (voir
+[`backend/src/seed-test-users.ts`](backend/src/seed-test-users.ts)) — définis-la avec une valeur
+forte et propre à ton environnement local avant de lancer le script. Ne documente jamais le mot de
+passe réel ici, et ne réutilise pas ces comptes en production.
 
 ---
 
